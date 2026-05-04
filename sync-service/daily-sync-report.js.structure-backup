@@ -1,0 +1,251 @@
+
+const path = require('path');
+const logger = require('./lib/logger');
+const EmailService = require('./lib/email-service');
+const SyncDataCollector = require('./lib/sync-data-collector');
+const emailConfig = require('./config/email-config');
+
+class DailySyncReporter {
+  constructor() {
+    this.emailService = new EmailService(emailConfig.email);
+    this.dataCollector = new SyncDataCollector();
+    this.config = emailConfig;
+  }
+
+  async generateAndSendReport() {
+    const startTime = Date.now();
+
+    try {
+      logger.info('Starting daily sync report generation');
+
+      // Collect all sync data
+      const reportData = await this.dataCollector.collectAllData();
+
+      // Apply configuration filters and thresholds
+      const processedData = this.processReportData(reportData);
+
+      // Send email report
+      const emailResult = await this.emailService.sendDailyReport(processedData);
+
+      const duration = Date.now() - startTime;
+      logger.info('Daily sync report completed successfully', {
+        duration,
+        messageId: emailResult.messageId,
+        recipients: emailResult.recipients
+      });
+
+      return {
+        success: true,
+        duration,
+        messageId: emailResult.messageId,
+        recipients: emailResult.recipients,
+        stats: {
+          syncItems: processedData.syncSummary.length,
+          errors: processedData.errors.length,
+          totalRecords: processedData.executiveSummary.totalRecordsProcessed
+        }
+      };
+
+    } catch (error) {
+      logger.error('Failed to generate daily sync report', {
+        error: error.message,
+        stack: error.stack
+      });
+
+      // Try to send a failure notification
+      try {
+        await this.sendFailureNotification(error);
+      } catch (notificationError) {
+        logger.error('Failed to send failure notification', {
+          error: notificationError.message
+        });
+      }
+
+      throw error;
+    } finally {
+      await this.cleanup();
+    }
+  }
+
+  processReportData(reportData) {
+    // Apply configuration thresholds and filters
+    const processedData = { ...reportData };
+
+    // Filter errors by max count
+    if (processedData.errors.length > this.config.report.maxErrors) {
+      processedData.errors = processedData.errors.slice(0, this.config.report.maxErrors);
+    }
+
+    // Add threshold-based alerts
+    processedData.alerts = this.generateAlerts(reportData);
+
+    // Filter table stats if disabled
+    if (!this.config.report.includeTableStats) {
+      delete processedData.tableCounts;
+    }
+
+    // Filter backup info if disabled
+    if (!this.config.report.includeBackupInfo) {
+      delete processedData.backupStatus;
+    }
+
+    // Filter performance metrics if disabled
+    if (!this.config.report.includePerformanceMetrics) {
+      processedData.performance = {
+        reportGenerationTime: processedData.performance.reportGenerationTime
+      };
+    }
+
+    return processedData;
+  }
+
+  generateAlerts(reportData) {
+    const alerts = [];
+
+    // Check backup age
+    if (reportData.backupStatus && reportData.backupStatus.lastBackup) {
+      const backupAge = (Date.now() - new Date(reportData.backupStatus.lastBackup)) / (1000 * 60 * 60);
+      if (backupAge > this.config.thresholds.backupMaxAge) {
+        alerts.push({
+          type: 'warning',
+          title: 'Old Backup',
+          message: `Last backup is ${backupAge.toFixed(1)} hours old (threshold: ${this.config.thresholds.backupMaxAge}h)`
+        });
+      }
+    }
+
+    // Check sync ages
+    reportData.syncSummary.forEach(sync => {
+      if (sync.lastSync) {
+        const syncAge = (Date.now() - new Date(sync.lastSync)) / (1000 * 60 * 60);
+        if (syncAge > this.config.thresholds.syncMaxAge) {
+          alerts.push({
+            type: 'warning',
+            title: 'Stale Sync',
+            message: `${sync.entityType} sync is ${syncAge.toFixed(1)} hours old (threshold: ${this.config.thresholds.syncMaxAge}h)`
+          });
+        }
+      }
+    });
+
+    // Check error rate
+    if (reportData.executiveSummary) {
+      const errorRate = 100 - reportData.executiveSummary.successRate;
+      if (errorRate > this.config.thresholds.errorRateThreshold) {
+        alerts.push({
+          type: 'error',
+          title: 'High Error Rate',
+          message: `Error rate is ${errorRate}% (threshold: ${this.config.thresholds.errorRateThreshold}%)`
+        });
+      }
+    }
+
+    // Check database connections
+    if (reportData.systemHealth && reportData.systemHealth.dbConnections > this.config.thresholds.maxDbConnections) {
+      alerts.push({
+        type: 'warning',
+        title: 'High DB Connections',
+        message: `Database has ${reportData.systemHealth.dbConnections} connections (threshold: ${this.config.thresholds.maxDbConnections})`
+      });
+    }
+
+    return alerts;
+  }
+
+  async sendFailureNotification(error) {
+    const failureData = {
+      reportDate: new Date().toISOString().split('T')[0],
+      timestamp: new Date().toISOString(),
+      executiveSummary: {
+        overallSuccess: false,
+        totalRecordsProcessed: 0,
+        totalInserts: 0,
+        totalUpdates: 0,
+        totalErrors: 1
+      },
+      syncSummary: [],
+      backupStatus: null,
+      systemHealth: { servicesRunning: false },
+      errors: [{
+        type: 'Report Generation Error',
+        message: error.message,
+        timestamp: new Date().toISOString()
+      }],
+      performance: {
+        reportGenerationTime: 0,
+        totalTables: 0
+      }
+    };
+
+    // Override email subject for failure
+    const originalSubject = this.config.email.subject;
+    this.config.email.subject = `🚨 ${originalSubject} - GENERATION FAILED`;
+
+    try {
+      await this.emailService.sendDailyReport(failureData);
+    } finally {
+      // Restore original subject
+      this.config.email.subject = originalSubject;
+    }
+  }
+
+  async cleanup() {
+    try {
+      await this.dataCollector.close();
+      await this.emailService.close();
+    } catch (error) {
+      logger.warn('Error during cleanup', { error: error.message });
+    }
+  }
+}
+
+// Main execution
+async function main() {
+  const reporter = new DailySyncReporter();
+
+  try {
+    const result = await reporter.generateAndSendReport();
+    logger.info('Daily sync report process completed', result.stats);
+    process.exit(0);
+  } catch (error) {
+    logger.error('Daily sync report process failed', {
+      error: error.message
+    });
+    process.exit(1);
+  }
+}
+
+// Handle command line execution
+if (require.main === module) {
+  // Handle process signals gracefully
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
+    logger.info('SIGINT received, shutting down gracefully');
+    process.exit(0);
+  });
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught exception in daily sync reporter', {
+      error: error.message,
+      stack: error.stack
+    });
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled promise rejection in daily sync reporter', {
+      reason,
+      promise
+    });
+    process.exit(1);
+  });
+
+  main();
+}
+
+module.exports = DailySyncReporter;

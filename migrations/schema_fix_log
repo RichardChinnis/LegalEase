@@ -1,0 +1,84 @@
+==============================================
+DEFINITIVE CONGRESS API SCHEMA FIX v2
+==============================================
+
+1. FIXING bill_cosponsor table...
+psql:008-definitive-schema-fix-v2.sql:21: ERROR:  column "cosponsor_id" of relation "bill_cosponsor" does not exist
+CONTEXT:  SQL statement "CREATE SEQUENCE bill_cosponsor_cosponsor_id_seq OWNED BY bill_cosponsor.cosponsor_id"
+PL/pgSQL function inline_code_block line 5 at SQL statement
+psql:008-definitive-schema-fix-v2.sql:24: ERROR:  relation "bill_cosponsor_cosponsor_id_seq" does not exist
+psql:008-definitive-schema-fix-v2.sql:27: ERROR:  column "cosponsor_id" does not exist
+LINE 1: ... nextval('bill_cosponsor_cosponsor_id_seq') WHERE cosponsor_...
+                                                             ^
+psql:008-definitive-schema-fix-v2.sql:30: ERROR:  column "cosponsor_id" of relation "bill_cosponsor" does not exist
+psql:008-definitive-schema-fix-v2.sql:47: NOTICE:     ⚠ Primary key setup issue: column "cosponsor_id" of relation "bill_cosponsor" does not exist
+DO
+psql:008-definitive-schema-fix-v2.sql:70: NOTICE:     ✓ Unique constraint already exists
+DO
+
+2. FIXING bill_summary table...
+psql:008-definitive-schema-fix-v2.sql:93: NOTICE:     ✓ Unique constraint already exists
+DO
+
+3. FIXING bill_title table...
+psql:008-definitive-schema-fix-v2.sql:117: NOTICE:     ✓ Unique constraint already exists
+DO
+
+4. FIXING bill_committee_activity table...
+psql:008-definitive-schema-fix-v2.sql:143: NOTICE:     ✓ Unique constraint already exists
+DO
+
+5. DATA CLEANUP AND CONSISTENCY...
+UPDATE 0
+UPDATE 0
+psql:008-definitive-schema-fix-v2.sql:160: ERROR:  syntax error at or near "RAISE"
+LINE 1: RAISE NOTICE '   ✓ Data consistency updates completed';
+        ^
+
+6. FIXING DATABASE CONNECTION LIMITS...
+psql:008-definitive-schema-fix-v2.sql:167: ERROR:  permission denied to alter role
+DETAIL:  Only roles with the CREATEROLE attribute and the ADMIN option on role "congress_sync_writer" may alter this role.
+psql:008-definitive-schema-fix-v2.sql:168: ERROR:  syntax error at or near "RAISE"
+LINE 1: RAISE NOTICE '   ✓ Increased connection limit for sync user ...
+        ^
+
+7. VERIFICATION...
+             info              
+-------------------------------
+ bill_cosponsor columns check:
+(1 row)
+
+   column_name    |     data_type     | is_nullable 
+------------------+-------------------+-------------
+ bioguide_id      | character varying | YES
+ sponsorship_date | date              | YES
+(2 rows)
+
+           info            
+---------------------------
+ Unique constraints check:
+(1 row)
+
+               conname               |      status       
+-------------------------------------+-------------------
+ bill_committee_activity_unique_sync | constraint exists
+ bill_cosponsor_unique_sync          | constraint exists
+ bill_summary_unique_sync            | constraint exists
+ bill_title_unique_sync              | constraint exists
+(4 rows)
+
+
+==============================================
+SCHEMA FIX v2 COMPLETED!
+==============================================
+
+Next steps:
+1. Restart sync service: sudo systemctl restart congress-sync
+2. Test with: node manual-sync.js
+3. Monitor for remaining errors
+
+If successful, old columns can be removed later:
+- bill_cosponsor.member_bioguide_id
+- bill_cosponsor.cosponsorship_date
+- bill_cosponsor.withdrawn_date
+- bill_summary.api_update_date

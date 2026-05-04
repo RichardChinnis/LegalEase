@@ -1,0 +1,56 @@
+==============================================
+FIXING SEQUENCE OWNERSHIP AND DEFAULT VALUE
+==============================================
+
+1. Checking table ownership...
+            info             |   tableowner   
+-----------------------------+----------------
+ bill_cosponsor table owner: | congress_admin
+(1 row)
+
+
+2. Creating sequence with correct ownership...
+psql:010-fix-sequence-ownership.sql:48: NOTICE:     Table owner is: congress_admin
+psql:010-fix-sequence-ownership.sql:48: NOTICE:     ✓ Created sequence with owner: congress_admin
+psql:010-fix-sequence-ownership.sql:48: NOTICE:     ✓ Set OWNED BY relationship
+DO
+
+3. Setting default value...
+ALTER TABLE
+   ✓ Set sequence as default for cosponsor_id
+
+4. Updating any NULL cosponsor_id values...
+psql:010-fix-sequence-ownership.sql:71: NOTICE:     ✓ No NULL cosponsor_id values found
+DO
+
+5. Synchronizing sequence with existing data...
+psql:010-fix-sequence-ownership.sql:83: ERROR:  setval: value 0 is out of bounds for sequence "bill_cosponsor_cosponsor_id_seq" (1..9223372036854775807)
+CONTEXT:  SQL statement "SELECT setval('bill_cosponsor_cosponsor_id_seq', max_id)"
+PL/pgSQL function inline_code_block line 6 at PERFORM
+
+6. FINAL VERIFICATION...
+      info      
+----------------
+ Sequence info:
+(1 row)
+
+ schemaname |          sequencename           | sequenceowner  | last_value 
+------------+---------------------------------+----------------+------------
+ public     | bill_cosponsor_cosponsor_id_seq | congress_admin |           
+(1 row)
+
+         info         
+----------------------
+ Column with default:
+(1 row)
+
+ column_name  | data_type | is_nullable |                    column_default                    
+--------------+-----------+-------------+------------------------------------------------------
+ cosponsor_id | integer   | NO          | nextval('bill_cosponsor_cosponsor_id_seq'::regclass)
+(1 row)
+
+
+==============================================
+SEQUENCE FIX COMPLETED!
+==============================================
+bill_cosponsor table is now ready for sync service

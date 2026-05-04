@@ -1,0 +1,143 @@
+# =============================================================================
+# Dependencies
+# =============================================================================
+# node_modules in any directory, at any depth
+**/node_modules/
+# Legacy local backups (do not track)
+**/node_modules_bak/
+**/node_modules_bak2/
+
+# =============================================================================
+# Environment / secrets
+# =============================================================================
+# All dotenv files by default (catches .env, .env.admin, .env.email, etc.)
+.env
+.env.*
+# Explicitly allow committed templates
+!.env.example
+!.env.sample
+!.env.template
+!.env.defaults
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+*.priv
+# Keep clearly-public keys if ever committed intentionally
+!*public*.pem
+
+# =============================================================================
+# Logs
+# =============================================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# =============================================================================
+# Build outputs / caches
+# =============================================================================
+coverage/
+.nyc_output/
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.turbo/
+.svelte-kit/
+*.tsbuildinfo
+
+# =============================================================================
+# Test outputs
+# =============================================================================
+junit.xml
+test-results/
+
+# =============================================================================
+# Runtime / process
+# =============================================================================
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# =============================================================================
+# Temp / scratch
+# =============================================================================
+temp/
+tmp/
+*.tmp
+
+# =============================================================================
+# Editor / IDE
+# =============================================================================
+.vscode/
+.idea/
+.vs/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =============================================================================
+# Project-specific
+# =============================================================================
+.claude/
+backend/docs/api.congress.gov/
+
+# Legacy v1 frontend — only frontend-v2/ ships in the public repo
+frontend/
+# v1-only docs at root
+NEW_FRONTEND.md
+FRONTEND_MIGRATION_IMPLEMENTATION_PLAN.md
+
+# Backup / leftover edit artifacts
+*.bak
+*.backup
+*.orig
+*.with-our-changes
+
+# Log files not caught by *.log
+*log.txt
+**/server_log.txt
+**/final_test_headers.txt
+
+# Stray npm-redirect output (e.g. `npm install >=0.6.0` writing to a file)
+/=*
+
+# Internal planning / implementation / audit docs (kept locally, excluded from public repo)
+docs/internal/
+
+# Local AI-tooling configuration
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+
+# Local release helper — never ships publicly, even on /main
+/release-to-public.sh
+
+# Superseded by schema.sql (historical, kept locally for reference)
+/init_db.sql
+
+# Server-host-specific deploy configs (committed templates: *.example)
+/congress-api.conf
+/backend/congress-api-backend.service

@@ -1,0 +1,371 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-07-19",
+  "updatedBy": "System",
+  "notes": "Model specifications and pricing - Update manually when provider pricing changes",
+  
+  "openai": {
+    "gpt-4o": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.0025,
+        "output": 0.01
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false,
+      "notes": "Latest GPT-4o model with vision capabilities"
+    },
+    "gpt-4o-mini": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.00015,
+        "output": 0.0006
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false,
+      "notes": "Cost-effective GPT-4o variant"
+    },
+    "gpt-4o-2024-11-20": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.0025,
+        "output": 0.01
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false
+    },
+    "gpt-4o-2024-08-06": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.0025,
+        "output": 0.01
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false
+    },
+    "gpt-4o-2024-05-13": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.005,
+        "output": 0.015
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat", "vision"],
+      "deprecated": true,
+      "notes": "Older GPT-4o version with higher costs"
+    },
+    "gpt-4-turbo": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.01,
+        "output": 0.03
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false
+    },
+    "gpt-4-turbo-2024-04-09": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.01,
+        "output": 0.03
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false
+    },
+    "gpt-4": {
+      "contextLength": 8192,
+      "costPer1kTokens": {
+        "input": 0.03,
+        "output": 0.06
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat"],
+      "deprecated": false,
+      "notes": "Original GPT-4 with 8K context"
+    },
+    "gpt-4-0613": {
+      "contextLength": 8192,
+      "costPer1kTokens": {
+        "input": 0.03,
+        "output": 0.06
+      },
+      "family": "gpt-4",
+      "capabilities": ["chat"],
+      "deprecated": false
+    },
+    "gpt-3.5-turbo": {
+      "contextLength": 16385,
+      "costPer1kTokens": {
+        "input": 0.001,
+        "output": 0.002
+      },
+      "family": "gpt-3.5",
+      "capabilities": ["chat"],
+      "deprecated": false
+    },
+    "gpt-3.5-turbo-0125": {
+      "contextLength": 16385,
+      "costPer1kTokens": {
+        "input": 0.0005,
+        "output": 0.0015
+      },
+      "family": "gpt-3.5",
+      "capabilities": ["chat"],
+      "deprecated": false
+    },
+    "gpt-3.5-turbo-1106": {
+      "contextLength": 16385,
+      "costPer1kTokens": {
+        "input": 0.001,
+        "output": 0.002
+      },
+      "family": "gpt-3.5",
+      "capabilities": ["chat"],
+      "deprecated": false
+    },
+    "o1-preview": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.015,
+        "output": 0.06
+      },
+      "family": "o1",
+      "capabilities": ["reasoning", "chat"],
+      "outputMultiplier": 4.0,
+      "deprecated": false,
+      "notes": "Reasoning model with higher output costs"
+    },
+    "o1-preview-2024-09-12": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.015,
+        "output": 0.06
+      },
+      "family": "o1",
+      "capabilities": ["reasoning", "chat"],
+      "outputMultiplier": 4.0,
+      "deprecated": false
+    },
+    "o1-mini": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.003,
+        "output": 0.012
+      },
+      "family": "o1",
+      "capabilities": ["reasoning", "chat"],
+      "outputMultiplier": 3.0,
+      "deprecated": false,
+      "notes": "Cost-effective reasoning model"
+    },
+    "o1-mini-2024-09-12": {
+      "contextLength": 128000,
+      "costPer1kTokens": {
+        "input": 0.003,
+        "output": 0.012
+      },
+      "family": "o1",
+      "capabilities": ["reasoning", "chat"],
+      "outputMultiplier": 3.0,
+      "deprecated": false
+    },
+    "gpt-4.1": {
+      "contextLength": 1047576,
+      "costPer1kTokens": {
+        "input": 0.01,
+        "output": 0.03
+      },
+      "family": "gpt-4.1",
+      "capabilities": ["chat", "vision", "large-context"],
+      "deprecated": false,
+      "notes": "Latest model with 1M+ context window"
+    },
+    "gpt-4.1-mini": {
+      "contextLength": 1047576,
+      "costPer1kTokens": {
+        "input": 0.003,
+        "output": 0.012
+      },
+      "family": "gpt-4.1",
+      "capabilities": ["chat", "vision", "large-context"],
+      "deprecated": false,
+      "notes": "Cost-effective large context model"
+    },
+    "gpt-4.1-nano": {
+      "contextLength": 1047576,
+      "costPer1kTokens": {
+        "input": 0.0001,
+        "output": 0.0004
+      },
+      "family": "gpt-4.1",
+      "capabilities": ["chat", "large-context"],
+      "deprecated": false,
+      "notes": "Most cost-effective OpenAI model with large context"
+    }
+  },
+
+  "claude": {
+    "claude-3-5-sonnet-20241022": {
+      "contextLength": 200000,
+      "costPer1kTokens": {
+        "input": 0.003,
+        "output": 0.015
+      },
+      "family": "claude-3.5",
+      "capabilities": ["chat", "vision", "artifacts"],
+      "deprecated": false,
+      "notes": "Latest Claude 3.5 Sonnet with enhanced capabilities"
+    },
+    "claude-3-5-sonnet-20240620": {
+      "contextLength": 200000,
+      "costPer1kTokens": {
+        "input": 0.003,
+        "output": 0.015
+      },
+      "family": "claude-3.5",
+      "capabilities": ["chat", "vision", "artifacts"],
+      "deprecated": false
+    },
+    "claude-3-5-haiku-20241022": {
+      "contextLength": 200000,
+      "costPer1kTokens": {
+        "input": 0.0008,
+        "output": 0.004
+      },
+      "family": "claude-3.5",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false,
+      "notes": "Fast and cost-effective Claude model"
+    },
+    "claude-3-opus-20240229": {
+      "contextLength": 200000,
+      "costPer1kTokens": {
+        "input": 0.015,
+        "output": 0.075
+      },
+      "family": "claude-3",
+      "capabilities": ["chat", "vision", "complex-reasoning"],
+      "deprecated": false,
+      "notes": "Highest capability Claude model"
+    },
+    "claude-3-sonnet-20240229": {
+      "contextLength": 200000,
+      "costPer1kTokens": {
+        "input": 0.003,
+        "output": 0.015
+      },
+      "family": "claude-3",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false
+    },
+    "claude-3-haiku-20240307": {
+      "contextLength": 200000,
+      "costPer1kTokens": {
+        "input": 0.00025,
+        "output": 0.00125
+      },
+      "family": "claude-3",
+      "capabilities": ["chat", "vision"],
+      "deprecated": false,
+      "notes": "Fastest and most cost-effective Claude model"
+    }
+  },
+
+  "gemini": {
+    "gemini-1.5-pro": {
+      "contextLength": 2000000,
+      "costPer1kTokens": {
+        "input": 0.00125,
+        "output": 0.005
+      },
+      "family": "gemini-1.5",
+      "capabilities": ["chat", "vision", "code", "large-context"],
+      "deprecated": false,
+      "notes": "Large context Gemini model with 2M tokens"
+    },
+    "gemini-1.5-pro-002": {
+      "contextLength": 2000000,
+      "costPer1kTokens": {
+        "input": 0.00125,
+        "output": 0.005
+      },
+      "family": "gemini-1.5",
+      "capabilities": ["chat", "vision", "code", "large-context"],
+      "deprecated": false
+    },
+    "gemini-1.5-flash": {
+      "contextLength": 1000000,
+      "costPer1kTokens": {
+        "input": 0.000075,
+        "output": 0.0003
+      },
+      "family": "gemini-1.5",
+      "capabilities": ["chat", "vision", "code"],
+      "deprecated": false,
+      "notes": "Fast and cost-effective Gemini model"
+    },
+    "gemini-1.5-flash-002": {
+      "contextLength": 1000000,
+      "costPer1kTokens": {
+        "input": 0.000075,
+        "output": 0.0003
+      },
+      "family": "gemini-1.5",
+      "capabilities": ["chat", "vision", "code"],
+      "deprecated": false
+    },
+    "gemini-1.0-pro": {
+      "contextLength": 32760,
+      "costPer1kTokens": {
+        "input": 0.0005,
+        "output": 0.0015
+      },
+      "family": "gemini-1.0",
+      "capabilities": ["chat"],
+      "deprecated": false,
+      "notes": "Original Gemini Pro model"
+    }
+  },
+
+  "ollama": {
+    "llama3": {
+      "contextLength": 8192,
+      "costPer1kTokens": {
+        "input": 0,
+        "output": 0
+      },
+      "family": "llama",
+      "capabilities": ["chat"],
+      "deprecated": false,
+      "notes": "Local Llama model - no API costs"
+    },
+    "mistral": {
+      "contextLength": 8192,
+      "costPer1kTokens": {
+        "input": 0,
+        "output": 0
+      },
+      "family": "mistral",
+      "capabilities": ["chat"],
+      "deprecated": false,
+      "notes": "Local Mistral model - no API costs"
+    },
+    "codellama": {
+      "contextLength": 16384,
+      "costPer1kTokens": {
+        "input": 0,
+        "output": 0
+      },
+      "family": "llama",
+      "capabilities": ["chat", "code"],
+      "deprecated": false,
+      "notes": "Local Code Llama model - no API costs"
+    }
+  }
+}

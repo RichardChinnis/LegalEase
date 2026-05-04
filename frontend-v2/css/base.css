@@ -1,0 +1,476 @@
+/* ==========================================================================
+   Base CSS - Congressional Activity Application
+   CSS Reset, Variables, Base Typography & Core Foundations
+   ========================================================================== */
+
+/* CSS Reset
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  line-height: 1.15; /* Normalize line height */
+  -webkit-text-size-adjust: 100%; /* Prevent iOS font size changes */
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-background-primary);
+  /* Subtle paper texture for editorial feel */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* App-shell layout: no page scroll, columns scroll independently */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Remove default list styles */
+ol, ul {
+  list-style: none;
+}
+
+/* Remove default quotation marks */
+blockquote, q {
+  quotes: none;
+}
+
+blockquote:before,
+blockquote:after,
+q:before,
+q:after {
+  content: '';
+  content: none;
+}
+
+/* Reset table styles */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Remove default button styles */
+button {
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Reset input and form element styles */
+input,
+button,
+select,
+optgroup,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+}
+
+/* Remove default fieldset styles */
+fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Reset link styles */
+a {
+  background-color: transparent;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* CSS Custom Properties (Variables)
+   ========================================================================== */
+
+:root {
+  /* ==========================================================================
+     COLOR SYSTEM - EDITORIAL PALETTE
+     Inspired by quality broadsheets: warm, authoritative, trustworthy
+     ========================================================================== */
+
+  /* Primary - Deep Ink Blue (authoritative, trustworthy) */
+  --color-primary: #1a1a2e;           /* Deep editorial ink */
+  --color-primary-light: #2d2d44;     /* Lighter ink for hovers */
+  --color-primary-dark: #0f0f1a;      /* Darker ink for pressed states */
+
+  /* Accent - Burnt Sienna (editorial highlight, CTAs) */
+  --color-accent: #c44d2a;            /* Warm editorial red-orange */
+  --color-accent-light: #d66b4a;      /* Light accent for hovers */
+  --color-accent-bg: #fdf6f4;         /* Very subtle accent background */
+  --color-accent-muted: #e8d5cf;      /* Muted accent for borders */
+
+  /* Secondary Accent - Old Gold (special callouts, Learn section) */
+  --color-gold: #b8860b;              /* Dignified gold */
+  --color-gold-light: #daa520;        /* Light gold */
+  --color-gold-bg: #faf8f0;           /* Cream gold background */
+
+  /* Backgrounds - Warm Paper Tones */
+  --color-background-primary: #fdfcfa;  /* Warm off-white (newspaper) */
+  --color-background-secondary: #ffffff; /* Pure white for cards */
+  --color-background-tertiary: #f5f3ef;  /* Warm gray (newsprint) */
+  --color-background-paper: #faf8f5;     /* Paper texture base */
+
+  /* Text - Rich Blacks (easier on eyes than pure black) */
+  --color-text-primary: #1a1a1a;      /* Near black */
+  --color-text-secondary: #4a4a4a;    /* Dark gray */
+  --color-text-tertiary: #7a7a7a;     /* Medium gray */
+  --color-text-inverse: #fdfcfa;      /* Off-white on dark */
+  --color-text-headline: #0d0d0d;     /* Pure headlines */
+
+  /* Borders - Subtle Warmth */
+  --color-border-primary: #e5e2dc;    /* Warm light border */
+  --color-border-secondary: #d1cdc5;  /* Warm medium border */
+  --color-border-accent: #e8d5cf;     /* Accent-tinted border */
+  --color-border-rule: #c9c4bc;       /* Horizontal rules */
+
+  /* Partisan Colors - Refined, slightly deeper */
+  --color-democrat: #1e5799;          /* Deeper blue */
+  --color-republican: #bf2a2a;        /* Deeper red */
+  --color-independent: #5c3d7a;       /* Deeper purple */
+
+  /* Semantic Colors - Editorial refined */
+  --color-success: #2d6a4f;           /* Forest green */
+  --color-warning: #b8860b;           /* Gold warning (matches gold accent) */
+  --color-danger: #9b2c2c;            /* Deep red */
+  --color-info: #1e5799;              /* Same as democrat blue */
+  
+  /* Typography - Editorial Stack */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-heading: 'Source Serif 4', Georgia, serif;
+  --font-body: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  
+  /* Font Sizes - Consistent Scale */
+  --font-size-xs: 0.75rem;      /* 12px */
+  --font-size-sm: 0.875rem;     /* 14px */
+  --font-size-base: 1rem;       /* 16px */
+  --font-size-lg: 1.125rem;     /* 18px */
+  --font-size-xl: 1.25rem;      /* 20px */
+  --font-size-2xl: 1.5rem;      /* 24px */
+  --font-size-3xl: 1.875rem;    /* 30px */
+  --font-size-4xl: 2.25rem;     /* 36px */
+  --font-size-5xl: 3rem;        /* 48px */
+  
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-base: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Spacing Scale */
+  --space-xs: 0.25rem;    /* 4px */
+  --space-sm: 0.5rem;     /* 8px */
+  --space-md: 1rem;       /* 16px */
+  --space-lg: 1.5rem;     /* 24px */
+  --space-xl: 2rem;       /* 32px */
+  --space-2xl: 3rem;      /* 48px */
+  --space-3xl: 4rem;      /* 64px */
+  --space-4xl: 6rem;      /* 96px */
+  
+  /* Border Radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Z-Index Scale */
+  --z-dropdown: 1000;
+  --z-header: 1010;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  
+  /* Transition Durations */
+  --transition-fast: 150ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+
+  /* ==========================================================================
+     ANIMATION & MOTION SYSTEM - Editorial Feel
+     ========================================================================== */
+
+  /* Easing Functions - Smooth, editorial feel */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Stagger Delays for Sequential Animations */
+  --stagger-1: 50ms;
+  --stagger-2: 100ms;
+  --stagger-3: 150ms;
+  --stagger-4: 200ms;
+  --stagger-5: 250ms;
+
+  /* Animation Durations */
+  --duration-instant: 100ms;
+  --duration-fast: 200ms;
+  --duration-normal: 350ms;
+  --duration-slow: 500ms;
+  --duration-slower: 700ms;
+
+  /* Enhanced Shadows - Editorial Depth */
+  --shadow-editorial-sm: 0 1px 2px rgba(26, 26, 26, 0.04),
+                          0 1px 3px rgba(26, 26, 26, 0.06);
+  --shadow-editorial-md: 0 2px 4px rgba(26, 26, 26, 0.04),
+                          0 4px 8px rgba(26, 26, 26, 0.08);
+  --shadow-editorial-lg: 0 4px 8px rgba(26, 26, 26, 0.04),
+                          0 8px 24px rgba(26, 26, 26, 0.12);
+  --shadow-editorial-xl: 0 8px 16px rgba(26, 26, 26, 0.06),
+                          0 16px 48px rgba(26, 26, 26, 0.12);
+
+  /* Breakpoints */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  
+  /* Container Max Widths */
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  --container-2xl: 1536px;
+}
+
+/* Typography Hierarchy
+   ========================================================================== */
+
+/* Display Headlines (h1-h3) - Newspaper gravitas */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-md);
+  color: var(--color-text-primary);
+}
+
+/* Section Headers (h4-h6) - Editorial serif */
+h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--space-md);
+  color: var(--color-text-primary);
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+  letter-spacing: -0.03em;
+}
+
+h2 {
+  font-size: var(--font-size-3xl);
+  letter-spacing: -0.02em;
+}
+
+h3 {
+  font-size: var(--font-size-2xl);
+}
+
+h4 {
+  font-size: var(--font-size-xl);
+}
+
+h5 {
+  font-size: var(--font-size-lg);
+}
+
+h6 {
+  font-size: var(--font-size-base);
+}
+
+/* Bill Numbers - Monospace Treatment */
+.bill-number,
+.bill-id,
+[class*="bill-number"],
+[class*="__bill-id"],
+[class*="bill_number"] {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+}
+
+/* Responsive Typography */
+@media (min-width: 768px) {
+  h1 {
+    font-size: var(--font-size-5xl);
+  }
+  
+  h2 {
+    font-size: var(--font-size-4xl);
+  }
+}
+
+/* Body Text Elements */
+p {
+  margin-bottom: var(--space-md);
+  line-height: var(--line-height-base);
+}
+
+/* Text Utility Classes */
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-base { font-size: var(--font-size-base); }
+.text-lg { font-size: var(--font-size-lg); }
+.text-xl { font-size: var(--font-size-xl); }
+.text-2xl { font-size: var(--font-size-2xl); }
+.text-3xl { font-size: var(--font-size-3xl); }
+
+.font-normal { font-weight: var(--font-weight-normal); }
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }
+
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+
+/* Links */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-base);
+}
+
+a:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+a:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Focus Management for Accessibility */
+:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Skip to content link for accessibility */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  padding: var(--space-sm) var(--space-md);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  z-index: var(--z-tooltip);
+  transition: top var(--transition-base);
+}
+
+.skip-link:focus {
+  top: 6px;
+  outline: none;
+}
+
+/* Print Styles */
+@media print {
+  *,
+  *:before,
+  *:after {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  thead {
+    display: table-header-group;
+  }
+  
+  tr,
+  img {
+    page-break-inside: avoid;
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  p,
+  h2,
+  h3 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+}
+
+/* Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  :root {
+    --color-primary: #000080;
+    --color-text-primary: #000000;
+    --color-background-primary: #FFFFFF;
+    --color-border-primary: #000000;
+  }
+}

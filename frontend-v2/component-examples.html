@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Component Examples - Congressional Activity App</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    
+    <style>
+        /* Example page styles */
+        .example-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--radius-lg);
+            background: var(--color-background-secondary);
+        }
+        
+        .example-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--color-text-primary);
+        }
+        
+        .example-description {
+            margin-bottom: 1.5rem;
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+        
+        .example-demo {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--color-background-primary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border-secondary);
+        }
+        
+        .control-panel {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .demo-card-container {
+            max-width: 600px;
+        }
+        
+        .loading-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .loading-example {
+            padding: 1rem;
+            border: 1px solid var(--color-border-secondary);
+            border-radius: var(--radius-md);
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .error-examples {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .tooltip-demo {
+            display: inline-block;
+            margin: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--color-primary);
+            color: white;
+            border-radius: var(--radius-md);
+            cursor: help;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 1000px; margin: 2rem auto; padding: 0 1rem;">
+        <header style="margin-bottom: 2rem; text-align: center;">
+            <h1>Congressional Activity App - Component Examples</h1>
+            <p style="color: var(--color-text-secondary);">Interactive demonstration of the core reusable components</p>
+        </header>
+
+        <!-- Card Component Example -->
+        <section class="example-section">
+            <h2 class="example-title">🏛️ CardComponent - Congressional Action Card</h2>
+            <p class="example-description">
+                The most critical component in the application. Displays congressional actions in a clean, accessible format 
+                with legislator photos, bill information, AI-generated summaries, and interactive elements.
+            </p>
+            <div class="example-demo">
+                <div class="demo-card-container" id="card-demo">
+                    <!-- Card will be rendered here -->
+                </div>
+            </div>
+            <div class="control-panel">
+                <button class="btn btn--sm" onclick="updateCardContent()">Update Content</button>
+                <button class="btn btn--sm" onclick="toggleCardSize()">Toggle Size</button>
+                <button class="btn btn--sm" onclick="loadCardSnippet()">Load AI Snippet</button>
+            </div>
+        </section>
+
+        <!-- Modal Component Example -->
+        <section class="example-section">
+            <h2 class="example-title">🪟 Modal Component - Reusable Modal Container</h2>
+            <p class="example-description">
+                Fully featured modal with focus trapping, keyboard navigation, accessibility features, and mobile responsive design.
+                Used for onboarding, bill details, member profiles, and other overlay content.
+            </p>
+            <div class="example-demo">
+                <div style="text-align: center;">
+                    <p>Click buttons to open different modal variants:</p>
+                </div>
+            </div>
+            <div class="control-panel">
+                <button class="btn btn--primary" onclick="openBasicModal()">Basic Modal</button>
+                <button class="btn btn--secondary" onclick="openFormModal()">Form Modal</button>
+                <button class="btn btn--outline" onclick="openBillDetailsModal()">Bill Details</button>
+                <button class="btn btn--ghost" onclick="openOnboardingModal()">Onboarding</button>
+            </div>
+        </section>
+
+        <!-- Loading Component Examples -->
+        <section class="example-section">
+            <h2 class="example-title">⏳ Loading Component - Loading States</h2>
+            <p class="example-description">
+                Multiple loading state indicators including spinners, skeleton loaders, and progress indicators 
+                with proper accessibility announcements and screen reader support.
+            </p>
+            <div class="loading-examples">
+                <div class="loading-example">
+                    <h4>Spinner</h4>
+                    <div id="spinner-demo"></div>
+                </div>
+                <div class="loading-example">
+                    <h4>Skeleton</h4>
+                    <div id="skeleton-demo"></div>
+                </div>
+                <div class="loading-example">
+                    <h4>Pulse Dots</h4>
+                    <div id="pulse-demo"></div>
+                </div>
+                <div class="loading-example">
+                    <h4>Progress Bar</h4>
+                    <div id="bar-demo"></div>
+                </div>
+            </div>
+            <div class="control-panel">
+                <button class="btn btn--sm" onclick="toggleLoadingStates()">Toggle All Loading</button>
+                <button class="btn btn--sm" onclick="createLoadingOverlay()">Show Overlay</button>
+            </div>
+        </section>
+
+        <!-- Error Component Examples -->
+        <section class="example-section">
+            <h2 class="example-title">⚠️ Error Component - Error Handling</h2>
+            <p class="example-description">
+                Comprehensive error display with retry functionality, different severity levels, 
+                reporting capabilities, and proper accessibility support.
+            </p>
+            <div class="error-examples">
+                <div id="error-demo-info"></div>
+                <div id="error-demo-warning"></div>
+                <div id="error-demo-error"></div>
+                <div id="error-demo-critical"></div>
+            </div>
+            <div class="control-panel">
+                <button class="btn btn--sm" onclick="showErrorExamples()">Show Error States</button>
+                <button class="btn btn--sm" onclick="clearErrors()">Clear All Errors</button>
+                <button class="btn btn--sm" onclick="triggerRetryableError()">Network Error</button>
+            </div>
+        </section>
+
+        <!-- Tooltip Component Examples -->
+        <section class="example-section">
+            <h2 class="example-title">💬 Tooltip Component - Contextual Help</h2>
+            <p class="example-description">
+                Smart positioning tooltips with collision detection, keyboard navigation, mobile support, 
+                and various trigger methods for providing contextual help throughout the application.
+            </p>
+            <div class="example-demo">
+                <p>Hover over or focus the elements below to see different tooltip variants:</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; justify-content: center;">
+                    <span class="tooltip-demo" data-tooltip="This is a basic tooltip with helpful information">
+                        Basic Tooltip
+                    </span>
+                    <span class="tooltip-demo" data-tooltip="Complex tooltip with multiple lines of content that wraps appropriately" data-tooltip-position="bottom">
+                        Long Content
+                    </span>
+                    <span class="tooltip-demo" data-tooltip="Error tooltip example" data-tooltip-theme="error">
+                        Error Theme
+                    </span>
+                    <span class="tooltip-demo" data-tooltip="Warning information here" data-tooltip-theme="warning">
+                        Warning Theme
+                    </span>
+                </div>
+            </div>
+            <div class="control-panel">
+                <button class="btn btn--sm" onclick="createInteractiveTooltip()">Interactive Tooltip</button>
+                <button class="btn btn--sm" onclick="createClickTooltip()">Click Tooltip</button>
+                <button class="btn btn--sm" onclick="destroyAllTooltips()">Clear Tooltips</button>
+            </div>
+        </section>
+
+        <!-- Integration Example -->
+        <section class="example-section">
+            <h2 class="example-title">🔗 Integration Example</h2>
+            <p class="example-description">
+                Example showing how these components work together in a real scenario, 
+                simulating a congressional feed with loading states, error handling, and interactive elements.
+            </p>
+            <div class="example-demo">
+                <div id="integration-demo" style="min-height: 300px;">
+                    <!-- Integration demo will be rendered here -->
+                </div>
+            </div>
+            <div class="control-panel">
+                <button class="btn btn--primary" onclick="startIntegrationDemo()">Start Demo</button>
+                <button class="btn btn--secondary" onclick="simulateError()">Simulate Error</button>
+                <button class="btn btn--ghost" onclick="resetDemo()">Reset</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/utils/dom.js"></script>
+    <script src="js/utils/events.js"></script>
+    <script src="js/utils/formatting.js"></script>
+    <script src="js/error-handler.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/api-service.js"></script>
+    <script src="js/chat-api-service.js"></script>
+    <script src="js/components/base-component.js"></script>
+    <script src="js/components/card.js"></script>
+    <script src="js/components/modal.js"></script>
+    <script src="js/components/loading.js"></script>
+    <script src="js/components/error.js"></script>
+    <script src="js/components/tooltip.js"></script>
+
+    <script>
+        // Example data and component instances
+        let cardInstance, modalInstance;
+        let loadingInstances = {};
+        let errorInstances = {};
+        let tooltipInstances = [];
+        
+        // Sample data for demonstrations
+        const sampleLegislator = {
+            id: "rep-smith-001",
+            firstName: "Jane",
+            lastName: "Smith",
+            title: "Rep.",
+            party: "D",
+            state: "CA",
+            district: "12",
+            photoUrl: null // Will use fallback initials
+        };
+        
+        const sampleBill = {
+            id: "hr1234-117",
+            type: "H.R.",
+            number: "1234",
+            congress: "117",
+            title: "Infrastructure Investment and Jobs Act - A comprehensive bill to invest in America's infrastructure, create jobs, and build back better",
+            shortTitle: "Infrastructure Investment and Jobs Act"
+        };
+        
+        const sampleAction = {
+            type: "sponsored",
+            timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+            verb: null
+        };
+        
+        // Initialize components when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCardExample();
+            initializeLoadingExamples();
+            initializeTooltipExamples();
+            showErrorExamples();
+        });
+        
+        // Card Component Examples
+        function initializeCardExample() {
+            cardInstance = new CardComponent({
+                legislator: sampleLegislator,
+                action: sampleAction,
+                bill: sampleBill,
+                llmSnippet: {
+                    text: "This landmark legislation aims to modernize America's infrastructure through strategic investments in roads, bridges, broadband, and clean energy initiatives.",
+                    confidence: 0.95,
+                    loading: false
+                },
+                size: 'default',
+                clickable: true
+            });
+            
+            cardInstance.mount('#card-demo');
+            
+            // Listen for card events
+            cardInstance.on('card:clicked', (data) => {
+                alert(`Card clicked! Bill: ${data.bill.type} ${data.bill.number}`);
+            });
+        }
+        
+        function updateCardContent() {
+            const bills = [
+                { type: "S.", number: "2567", title: "Climate Action Now Act", shortTitle: "Climate Action Now Act" },
+                { type: "H.RES.", number: "456", title: "Expressing support for democracy", shortTitle: "Democracy Support Resolution" },
+                { type: "H.R.", number: "789", title: "Healthcare for All Americans Act", shortTitle: "Healthcare for All Act" }
+            ];
+            
+            const actions = ['sponsored', 'cosponsored', 'voted_yes', 'introduced'];
+            const randomBill = bills[Math.floor(Math.random() * bills.length)];
+            const randomAction = actions[Math.floor(Math.random() * actions.length)];
+            
+            cardInstance.updateProps({
+                bill: { ...sampleBill, ...randomBill },
+                action: { ...sampleAction, type: randomAction }
+            });
+        }
+        
+        function toggleCardSize() {
+            const currentSize = cardInstance.props.size;
+            const newSize = currentSize === 'compact' ? 'default' : currentSize === 'default' ? 'expanded' : 'compact';
+            cardInstance.updateProps({ size: newSize });
+        }
+        
+        function loadCardSnippet() {
+            cardInstance.setSnippetLoading(true);
+            
+            setTimeout(() => {
+                const snippets = [
+                    "This bill represents a significant step forward in addressing climate change through comprehensive policy reform.",
+                    "A crucial piece of legislation that aims to strengthen democracy and voting rights across all states.",
+                    "This healthcare reform proposal seeks to ensure universal coverage while controlling costs."
+                ];
+                
+                cardInstance.updateSnippet({
+                    text: snippets[Math.floor(Math.random() * snippets.length)],
+                    confidence: 0.85 + Math.random() * 0.15,
+                    loading: false
+                });
+            }, 2000);
+        }
+        
+        // Modal Component Examples
+        function openBasicModal() {
+            if (modalInstance) modalInstance.destroy();
+            
+            modalInstance = new ModalComponent({
+                title: "Basic Modal Example",
+                body: {
+                    content: `
+                        <p>This is a basic modal with standard content. It demonstrates the core modal functionality including:</p>
+                        <ul>
+                            <li>Focus trapping and keyboard navigation</li>
+                            <li>Backdrop click to close</li>
+                            <li>ESC key to close</li>
+                            <li>Proper ARIA attributes</li>
+                            <li>Mobile responsive design</li>
+                        </ul>
+                        <p>Try pressing the Tab key to navigate through focusable elements, or press ESC to close.</p>
+                    `
+                },
+                footer: {
+                    show: true,
+                    actions: [
+                        { label: 'Close', action: 'close', variant: 'btn--secondary' },
+                        { label: 'Confirm', action: 'confirm', variant: 'btn--primary' }
+                    ]
+                }
+            });
+            
+            // Add event listeners for modal actions
+            modalInstance.on('action:confirm', () => {
+                alert('Confirmed! Modal will now close.');
+                modalInstance.close();
+            });
+            
+            modalInstance.open();
+        }
+        
+        function openFormModal() {
+            if (modalInstance) modalInstance.destroy();
+            
+            modalInstance = new ModalComponent({
+                title: "Contact Your Representative",
+                size: 'lg',
+                body: {
+                    content: `
+                        <form onsubmit="return false;">
+                            <div class="form-group">
+                                <label class="form-label form-label--required" for="name">Your Name</label>
+                                <input type="text" id="name" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label form-label--required" for="email">Email Address</label>
+                                <input type="email" id="email" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label form-label--required" for="message">Message</label>
+                                <textarea id="message" class="form-textarea" rows="4" placeholder="Share your thoughts on this legislation..."></textarea>
+                            </div>
+                        </form>
+                    `
+                },
+                footer: {
+                    show: true,
+                    actions: [
+                        { label: 'Cancel', action: 'cancel', variant: 'btn--ghost' },
+                        { label: 'Send Message', action: 'send', variant: 'btn--primary' }
+                    ]
+                }
+            });
+            
+            // Add event listeners for form modal actions
+            modalInstance.on('action:send', () => {
+                // Simulate form validation and submission
+                const name = modalInstance.element.querySelector('input[type="text"]').value;
+                const email = modalInstance.element.querySelector('input[type="email"]').value;
+                const message = modalInstance.element.querySelector('textarea').value;
+                
+                if (!name || !email || !message) {
+                    alert('Please fill in all fields before sending.');
+                    return;
+                }
+                
+                alert(`Message sent!\nName: ${name}\nEmail: ${email}\nMessage: ${message.substring(0, 50)}...`);
+                modalInstance.close();
+            });
+            
+            modalInstance.on('action:cancel', () => {
+                // Cancel action - modal will close automatically
+            });
+            
+            modalInstance.open();
+        }
+        
+        function openBillDetailsModal() {
+            if (modalInstance) modalInstance.destroy();
+            
+            modalInstance = new ModalComponent({
+                title: "H.R. 1234 - Infrastructure Investment and Jobs Act",
+                size: 'xl',
+                body: {
+                    content: `
+                        <div style="margin-bottom: 1rem;">
+                            <div class="status-tracker">
+                                <div class="status-tracker__step status-tracker__step--completed">
+                                    <div class="status-tracker__icon">✓</div>
+                                    <div class="status-tracker__label">Introduced</div>
+                                </div>
+                                <div class="status-tracker__step status-tracker__step--completed">
+                                    <div class="status-tracker__icon">✓</div>
+                                    <div class="status-tracker__label">Committee</div>
+                                </div>
+                                <div class="status-tracker__step status-tracker__step--current">
+                                    <div class="status-tracker__icon">○</div>
+                                    <div class="status-tracker__label">House Vote</div>
+                                </div>
+                                <div class="status-tracker__step">
+                                    <div class="status-tracker__icon">○</div>
+                                    <div class="status-tracker__label">Senate</div>
+                                </div>
+                                <div class="status-tracker__step">
+                                    <div class="status-tracker__icon">○</div>
+                                    <div class="status-tracker__label">Enacted</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tabs">
+                            <div class="tabs__list">
+                                <button class="tabs__tab tabs__tab--active">Summary</button>
+                                <button class="tabs__tab">Key Provisions</button>
+                                <button class="tabs__tab">Voting Record</button>
+                            </div>
+                            <div class="tabs__panel">
+                                <p><strong>AI Summary:</strong> This comprehensive infrastructure bill represents one of the largest federal investments in American infrastructure in decades, focusing on roads, bridges, broadband expansion, and clean energy initiatives.</p>
+                                
+                                <h4>Key Details:</h4>
+                                <ul>
+                                    <li><strong>Sponsor:</strong> Rep. Jane Smith (D-CA-12)</li>
+                                    <li><strong>Committee:</strong> Transportation and Infrastructure</li>
+                                    <li><strong>Last Action:</strong> Passed House committee (March 15, 2023)</li>
+                                    <li><strong>Total Cost:</strong> $1.2 trillion over 10 years</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `
+                },
+                footer: {
+                    show: true,
+                    actions: [
+                        { label: 'Track Bill', action: 'track', variant: 'btn--primary' },
+                        { label: 'Share', action: 'share', variant: 'btn--secondary' },
+                        { label: 'Close', action: 'close', variant: 'btn--ghost' }
+                    ]
+                }
+            });
+            
+            modalInstance.open();
+        }
+        
+        function openOnboardingModal() {
+            if (modalInstance) modalInstance.destroy();
+            
+            modalInstance = new ModalComponent({
+                header: {
+                    show: true,
+                    showCloseButton: false,
+                    content: `
+                        <div style="text-align: center; padding: 1rem;">
+                            <h2 style="color: var(--color-primary); margin-bottom: 0.5rem;">Welcome to Congressional Tracker</h2>
+                            <p style="color: var(--color-text-secondary); margin: 0;">Stay informed about what your representatives are doing</p>
+                        </div>
+                    `
+                },
+                closable: false,
+                closeOnBackdrop: false,
+                body: {
+                    content: `
+                        <div style="text-align: center; padding: 2rem 1rem;">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">🏛️</div>
+                            <h3 style="margin-bottom: 1rem;">See what your representatives are doing for you</h3>
+                            <p style="margin-bottom: 2rem; color: var(--color-text-secondary);">Enter your address to personalize your feed with your local representative and senators.</p>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="address">Your Address</label>
+                                <input type="text" id="address" class="form-input" placeholder="123 Main St, Your City, State 12345">
+                                <div class="form-help">We only use this to find your district and don't store your address.</div>
+                            </div>
+                        </div>
+                    `
+                },
+                footer: {
+                    show: true,
+                    actions: [
+                        { label: 'Skip for now', action: 'skip', variant: 'btn--ghost' },
+                        { label: 'Find My Representatives', action: 'find', variant: 'btn--primary' }
+                    ]
+                }
+            });
+            
+            // Add event listeners for onboarding modal actions
+            modalInstance.on('action:skip', () => {
+                alert('Skipped onboarding - you can set up your location later.');
+                modalInstance.close();
+            });
+            
+            modalInstance.on('action:find', () => {
+                // Get address input value
+                const address = modalInstance.element.querySelector('#address').value;
+                
+                if (!address.trim()) {
+                    alert('Please enter your address to find your representatives.');
+                    return;
+                }
+                
+                // Simulate address lookup
+                alert(`Looking up representatives for: ${address}\n\nFound:\n• Rep. Jane Smith (D-CA-12)\n• Sen. John Doe (D-CA)\n• Sen. Mary Johnson (R-CA)`);
+                modalInstance.close();
+            });
+            
+            modalInstance.open();
+        }
+        
+        // Loading Component Examples
+        function initializeLoadingExamples() {
+            loadingInstances.spinner = new LoadingComponent({
+                variant: 'spinner',
+                size: 'default',
+                showMessage: false
+            });
+            loadingInstances.spinner.mount('#spinner-demo');
+            
+            loadingInstances.skeleton = new LoadingComponent({
+                variant: 'skeleton',
+                skeleton: {
+                    lines: 3,
+                    avatar: true,
+                    animated: true
+                }
+            });
+            loadingInstances.skeleton.mount('#skeleton-demo');
+            
+            loadingInstances.pulse = new LoadingComponent({
+                variant: 'pulse',
+                showMessage: false
+            });
+            loadingInstances.pulse.mount('#pulse-demo');
+            
+            loadingInstances.bar = new LoadingComponent({
+                variant: 'bar',
+                showMessage: false
+            });
+            loadingInstances.bar.mount('#bar-demo');
+        }
+        
+        function toggleLoadingStates() {
+            Object.values(loadingInstances).forEach(loading => {
+                if (loading.state.visible) {
+                    loading.hide();
+                } else {
+                    loading.show();
+                }
+            });
+        }
+        
+        function createLoadingOverlay() {
+            const overlay = LoadingComponent.createOverlay(document.body, {
+                message: 'Loading congressional data...',
+                size: 'lg'
+            });
+            
+            setTimeout(() => {
+                overlay.updateMessage('Almost done...');
+                setTimeout(() => {
+                    overlay.destroy();
+                }, 1500);
+            }, 2000);
+        }
+        
+        // Error Component Examples
+        function showErrorExamples() {
+            errorInstances.info = new ErrorComponent({
+                type: 'generic',
+                severity: 'info',
+                title: 'Information',
+                message: 'New congressional session data is now available. Your feed has been updated with the latest information.',
+                closable: true
+            });
+            errorInstances.info.mount('#error-demo-info');
+            
+            errorInstances.warning = new ErrorComponent({
+                type: 'validation',
+                severity: 'warning',
+                title: 'Incomplete Profile',
+                message: 'To get personalized updates, please complete your location information in your profile settings.',
+                primaryAction: {
+                    label: 'Complete Profile',
+                    variant: 'btn--primary'
+                },
+                closable: true
+            });
+            errorInstances.warning.mount('#error-demo-warning');
+            
+            errorInstances.error = new ErrorComponent({
+                type: 'network',
+                severity: 'error',
+                message: 'Unable to load the latest bill information. Please check your connection and try again.',
+                retryable: true,
+                maxRetries: 3,
+                onRetry: async (attempt) => {
+                    console.log(`Retry attempt ${attempt}`);
+                    // Simulate network request
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    if (Math.random() > 0.7) {
+                        throw new Error('Network still unavailable');
+                    }
+                }
+            });
+            errorInstances.error.mount('#error-demo-error');
+            
+            errorInstances.critical = new ErrorComponent({
+                type: 'server',
+                severity: 'critical',
+                title: 'Service Temporarily Unavailable',
+                message: 'Our servers are experiencing high traffic. We\'re working to resolve this issue as quickly as possible.',
+                reportable: true,
+                collapsible: true,
+                showDetails: false,
+                error: new Error('Server Error 503: Service Unavailable'),
+                onReport: (errorInfo) => {
+                    console.log('Error reported:', errorInfo);
+                    alert('Thank you for reporting this issue. Our team has been notified.');
+                }
+            });
+            errorInstances.critical.mount('#error-demo-critical');
+        }
+        
+        function clearErrors() {
+            Object.values(errorInstances).forEach(error => error.destroy());
+            errorInstances = {};
+        }
+        
+        function triggerRetryableError() {
+            const networkError = new ErrorComponent({
+                type: 'network',
+                severity: 'error',
+                title: 'Connection Failed',
+                message: 'Failed to connect to congressional data services. This might be a temporary network issue.',
+                retryable: true,
+                retryText: 'Try Again',
+                maxRetries: 3,
+                retryDelay: 1000,
+                exponentialBackoff: true,
+                onRetry: async (attempt) => {
+                    console.log(`Network retry attempt ${attempt}`);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // Simulate success after a few attempts
+                    if (attempt >= 2) {
+                        alert('Connection restored! Data loaded successfully.');
+                        networkError.destroy();
+                        return;
+                    }
+                    
+                    throw new Error(`Connection attempt ${attempt} failed`);
+                },
+                closable: true
+            });
+            
+            const container = document.createElement('div');
+            document.querySelector('.error-examples').appendChild(container);
+            networkError.mount(container);
+        }
+        
+        // Tooltip Component Examples
+        function initializeTooltipExamples() {
+            document.querySelectorAll('[data-tooltip]').forEach(element => {
+                const tooltip = TooltipComponent.create(element, {
+                    content: element.dataset.tooltip,
+                    position: element.dataset.tooltipPosition || 'top',
+                    theme: element.dataset.tooltipTheme || 'default',
+                    trigger: 'hover',
+                    showDelay: 500,
+                    hideDelay: 100
+                });
+                
+                tooltipInstances.push(tooltip);
+            });
+        }
+        
+        function createInteractiveTooltip() {
+            const button = document.createElement('button');
+            button.className = 'btn btn--sm';
+            button.textContent = 'Interactive Tooltip';
+            button.style.margin = '0.5rem';
+            
+            document.querySelector('.tooltip-demo').parentNode.appendChild(button);
+            
+            const tooltip = TooltipComponent.create(button, {
+                content: `
+                    <div>
+                        <strong>Interactive Content</strong>
+                        <p style="margin: 0.5rem 0;">This tooltip allows interaction with its content.</p>
+                        <button onclick="alert('Tooltip button clicked!')" style="padding: 0.25rem 0.5rem; border: 1px solid white; background: transparent; color: white; border-radius: 4px; cursor: pointer;">
+                            Click Me!
+                        </button>
+                    </div>
+                `,
+                interactive: true,
+                theme: 'dark',
+                maxWidth: '250px',
+                position: 'bottom'
+            });
+            
+            tooltipInstances.push(tooltip);
+        }
+        
+        function createClickTooltip() {
+            const button = document.createElement('button');
+            button.className = 'btn btn--sm';
+            button.textContent = 'Click Tooltip';
+            button.style.margin = '0.5rem';
+            
+            document.querySelector('.tooltip-demo').parentNode.appendChild(button);
+            
+            const tooltip = TooltipComponent.create(button, {
+                content: 'This tooltip opens on click and stays open until clicked again or you click elsewhere.',
+                trigger: 'click',
+                theme: 'light',
+                position: 'left'
+            });
+            
+            tooltipInstances.push(tooltip);
+        }
+        
+        function destroyAllTooltips() {
+            tooltipInstances.forEach(tooltip => tooltip.destroy());
+            tooltipInstances = [];
+            
+            // Remove dynamically created buttons
+            document.querySelectorAll('.tooltip-demo').forEach(demo => {
+                demo.parentNode.querySelectorAll('button').forEach(btn => {
+                    if (btn.textContent.includes('Tooltip')) {
+                        btn.remove();
+                    }
+                });
+            });
+        }
+        
+        // Integration Example
+        function startIntegrationDemo() {
+            const container = document.getElementById('integration-demo');
+            container.innerHTML = '';
+            
+            // Show loading state
+            const loading = new LoadingComponent({
+                variant: 'spinner',
+                message: 'Loading congressional activity...',
+                size: 'lg'
+            });
+            loading.mount(container);
+            loading.show();
+            
+            // Simulate data loading
+            setTimeout(() => {
+                loading.hide();
+                
+                // Create multiple cards
+                const cards = [
+                    {
+                        legislator: { ...sampleLegislator, firstName: "John", lastName: "Doe", party: "R" },
+                        action: { type: "voted_yes", timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000) },
+                        bill: { ...sampleBill, type: "S.", number: "456", title: "Clean Energy Investment Act" }
+                    },
+                    {
+                        legislator: sampleLegislator,
+                        action: { type: "cosponsored", timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000) },
+                        bill: { ...sampleBill, type: "H.R.", number: "789", title: "Healthcare Accessibility Act" }
+                    },
+                    {
+                        legislator: { ...sampleLegislator, firstName: "Maria", lastName: "Garcia", party: "D" },
+                        action: { type: "introduced", timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000) },
+                        bill: { ...sampleBill, type: "H.RES.", number: "123", title: "Democracy Protection Resolution" }
+                    }
+                ];
+                
+                cards.forEach((cardData, index) => {
+                    setTimeout(() => {
+                        const cardDiv = document.createElement('div');
+                        cardDiv.style.marginBottom = '1rem';
+                        container.appendChild(cardDiv);
+                        
+                        const card = new CardComponent({
+                            ...cardData,
+                            llmSnippet: {
+                                text: '',
+                                loading: true
+                            },
+                            clickable: true
+                        });
+                        
+                        card.mount(cardDiv);
+                        
+                        // Load snippet after a delay
+                        setTimeout(() => {
+                            const snippets = [
+                                "This legislation represents a significant step toward renewable energy independence and job creation.",
+                                "A comprehensive approach to making healthcare more accessible and affordable for all Americans.",
+                                "Essential democratic reforms to strengthen voting rights and election security nationwide."
+                            ];
+                            
+                            card.updateSnippet({
+                                text: snippets[index],
+                                confidence: 0.9,
+                                loading: false
+                            });
+                        }, 1000 + index * 500);
+                        
+                        card.on('card:clicked', (data) => {
+                            // Open bill details modal
+                            openBillDetailsModal();
+                        });
+                        
+                    }, index * 300);
+                });
+                
+            }, 2000);
+        }
+        
+        function simulateError() {
+            const container = document.getElementById('integration-demo');
+            
+            const error = new ErrorComponent({
+                type: 'network',
+                severity: 'error',
+                title: 'Failed to Load Congressional Data',
+                message: 'Unable to retrieve the latest congressional activity. This might be due to a temporary network issue or high server load.',
+                retryable: true,
+                maxRetries: 3,
+                reportable: true,
+                onRetry: async () => {
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    error.destroy();
+                    startIntegrationDemo();
+                },
+                onReport: () => {
+                    alert('Issue reported. Thank you for helping us improve the service!');
+                }
+            });
+            
+            error.mount(container);
+        }
+        
+        function resetDemo() {
+            const container = document.getElementById('integration-demo');
+            container.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary); padding: 2rem;">Click "Start Demo" to see the components in action.</p>';
+        }
+    </script>
+</body>
+</html>

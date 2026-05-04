@@ -1,0 +1,475 @@
+const DatabaseService = require('./database');
+const logger = require('./logger');
+const { exec } = require('child_process');
+const fs = require('fs').promises;
+const path = require('path');
+
+class SyncDataCollector {
+  constructor() {
+    this.db = new DatabaseService();
+
+    // Define expected sync services and their schedules
+    this.expectedServices = {
+      'bills': { schedule: 'daily', description: 'Bills sync (should run daily)' },
+      'members': { schedule: 'daily', description: 'Members sync (should run daily)' },
+      'committees': { schedule: 'daily', description: 'Committees sync (should run daily)' },
+      'hearings': { schedule: 'daily', description: 'Hearings sync (should run daily)' },
+      'congressional-record': { schedule: 'daily', description: 'Congressional Record sync (should run daily)' },
+      'committee-reports': { schedule: 'daily', description: 'Committee Reports sync (should run daily)' }
+    };
+  }
+
+  async collectAllData() {
+    const startTime = Date.now();
+
+    try {
+      logger.info('Starting data collection for daily report');
+
+      const [
+        syncSummary,
+        backupStatus,
+        systemHealth,
+        errors,
+        performance,
+        tableCounts
+      ] = await Promise.all([
+        this.getSyncSummary(),
+        this.getBackupStatus(),
+        this.getSystemHealth(),
+        this.getRecentErrors(),
+        this.getPerformanceMetrics(),
+        this.getTableCounts()
+      ]);
+
+      const executiveSummary = this.generateExecutiveSummary(syncSummary, tableCounts);
+
+      const reportData = {
+        reportDate: new Date().toISOString().split('T')[0],
+        timestamp: new Date().toISOString(),
+        executiveSummary,
+        syncSummary,
+        backupStatus,
+        systemHealth,
+        errors,
+        performance: {
+          ...performance,
+          reportGenerationTime: Date.now() - startTime,
+          totalTables: tableCounts.length
+        },
+        tableCounts
+      };
+
+      const duration = Date.now() - startTime;
+      logger.info('Data collection completed', {
+        duration,
+        errors: errors.length,
+        syncItems: syncSummary.items?.length || 0
+      });
+
+      return reportData;
+
+    } catch (error) {
+      logger.error('Failed to collect report data', { error: error.message });
+      throw error;
+    }
+  }
+
+  async getSyncSummary() {
+    try {
+      // Get sync activity from the past 24 hours
+      const past24HoursQuery = `
+        SELECT
+          entity_type,
+          last_sync_at,
+          last_successful_sync,
+          records_synced,
+          records_failed,
+          sync_duration_ms,
+          error_message
+        FROM sync_status
+        WHERE last_sync_at >= NOW() - INTERVAL '24 hours'
+        ORDER BY last_sync_at DESC;
+      `;
+
+      // Get overall status for all entity types (for comparison)
+      const allStatusQuery = `
+        SELECT DISTINCT
+          entity_type,
+          last_sync_at,
+          last_successful_sync,
+          records_synced,
+          records_failed,
+          sync_duration_ms,
+          error_message
+        FROM sync_status
+        ORDER BY entity_type;
+      `;
+
+      const [past24HoursResult, allStatusResult] = await Promise.all([
+        this.db.query(past24HoursQuery),
+        this.db.query(allStatusQuery)
+      ]);
+
+      // Create a map of all known services
+      const allServices = new Map();
+      allStatusResult.rows.forEach(row => {
+        allServices.set(row.entity_type, {
+          entityType: this.formatEntityType(row.entity_type),
+          success: !row.error_message && row.last_successful_sync,
+          lastSync: row.last_sync_at,
+          lastSuccessfulSync: row.last_successful_sync,
+          recordsProcessed: (row.records_synced || 0) + (row.records_failed || 0),
+          recordsInserted: row.records_synced || 0,
+          recordsFailed: row.records_failed || 0,
+          duration: row.sync_duration_ms,
+          errorCount: row.records_failed || 0,
+          errorMessage: row.error_message,
+          ranInPast24Hours: false
+        });
+      });
+
+      // Mark services that ran in the past 24 hours
+      const recentSyncs = past24HoursResult.rows.map(row => {
+        const serviceData = {
+          entityType: this.formatEntityType(row.entity_type),
+          success: !row.error_message && row.last_successful_sync,
+          lastSync: row.last_sync_at,
+          lastSuccessfulSync: row.last_successful_sync,
+          recordsProcessed: (row.records_synced || 0) + (row.records_failed || 0),
+          recordsInserted: row.records_synced || 0,
+          recordsFailed: row.records_failed || 0,
+          duration: row.sync_duration_ms,
+          errorCount: row.records_failed || 0,
+          errorMessage: row.error_message,
+          ranInPast24Hours: true
+        };
+
+        // Update the all services map
+        if (allServices.has(row.entity_type)) {
+          allServices.set(row.entity_type, serviceData);
+        }
+
+        return serviceData;
+      });
+
+      // Add expected services that didn't run
+      Object.keys(this.expectedServices).forEach(serviceKey => {
+        if (!allServices.has(serviceKey)) {
+          allServices.set(serviceKey, {
+            entityType: this.formatEntityType(serviceKey),
+            success: false,
+            lastSync: null,
+            lastSuccessfulSync: null,
+            recordsProcessed: 0,
+            recordsInserted: 0,
+            recordsFailed: 0,
+            duration: null,
+            errorCount: 0,
+            errorMessage: 'Service not configured or never run',
+            ranInPast24Hours: false,
+            isExpected: true,
+            isMissing: true
+          });
+        }
+      });
+
+      const allItems = Array.from(allServices.values());
+      const itemsThatRan = allItems.filter(item => item.ranInPast24Hours);
+      const itemsThatShouldHaveRun = allItems.filter(item =>
+        Object.keys(this.expectedServices).includes(item.entityType.toLowerCase().replace(/\s+/g, '-'))
+      );
+      const missingServices = itemsThatShouldHaveRun.filter(item => !item.ranInPast24Hours);
+
+      return {
+        items: allItems,
+        recentActivity: itemsThatRan,
+        expectedServices: itemsThatShouldHaveRun,
+        missingServices: missingServices,
+        summary: {
+          totalServices: allItems.length,
+          servicesRanPast24h: itemsThatRan.length,
+          expectedToRun: itemsThatShouldHaveRun.length,
+          missedServices: missingServices.length
+        }
+      };
+    } catch (error) {
+      logger.error('Failed to get sync summary', { error: error.message });
+      return {
+        items: [],
+        recentActivity: [],
+        expectedServices: [],
+        missingServices: [],
+        summary: { totalServices: 0, servicesRanPast24h: 0, expectedToRun: 0, missedServices: 0 }
+      };
+    }
+  }
+
+  async getBackupStatus() {
+    try {
+      // Check the backup log file for the most recent backup
+      const logFile = '/var/log/congress-api-backup.log';
+      const backupDir = '/storage/backups/congress-api';
+
+      let lastBackup = null;
+      let backupSuccess = false;
+      let backupSize = null;
+
+      try {
+        // Check if backup directory exists and get latest file
+        const files = await fs.readdir(backupDir).catch(() => []);
+        if (files.length > 0) {
+          const latestFile = files
+            .filter(f => f.includes('congress_db_backup'))
+            .sort()
+            .pop();
+
+          if (latestFile) {
+            const stats = await fs.stat(path.join(backupDir, latestFile));
+            lastBackup = stats.mtime;
+            backupSize = stats.size;
+
+            // Check if backup is recent (within 26 hours)
+            const backupAge = Date.now() - stats.mtime.getTime();
+            backupSuccess = backupAge < (26 * 60 * 60 * 1000);
+          }
+        }
+      } catch (error) {
+        logger.warn('Could not check backup directory', { error: error.message });
+      }
+
+      // Also check systemd timer status
+      const timerStatus = await this.getSystemdTimerStatus('congress-api-backup.timer');
+
+      return {
+        status: backupSuccess ? 'success' : 'warning',
+        lastBackup,
+        backupSize,
+        timerActive: timerStatus.active,
+        nextRun: timerStatus.nextRun
+      };
+    } catch (error) {
+      logger.error('Failed to get backup status', { error: error.message });
+      return {
+        status: 'error',
+        lastBackup: null,
+        backupSize: null,
+        timerActive: false,
+        nextRun: null
+      };
+    }
+  }
+
+  async getSystemHealth() {
+    try {
+      const [activeServices, uptime, dbConnections] = await Promise.all([
+        this.getActiveServices(),
+        this.getSystemUptime(),
+        this.getDatabaseConnections()
+      ]);
+
+      return {
+        status: 'healthy',
+        activeServices,
+        uptime,
+        dbConnections,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      logger.error('Failed to get system health', { error: error.message });
+      return {
+        status: 'error',
+        activeServices: 0,
+        uptime: 'unknown',
+        dbConnections: 0,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async getSystemdTimerStatus(timerName) {
+    return new Promise((resolve) => {
+      exec(`systemctl show ${timerName} --property=ActiveState,NextElapseUSecRealtime`, (error, stdout) => {
+        if (error) {
+          resolve({ active: false, nextRun: null });
+          return;
+        }
+
+        const lines = stdout.trim().split('\n');
+        const active = lines.find(l => l.startsWith('ActiveState='))?.includes('active') || false;
+        const nextRunLine = lines.find(l => l.startsWith('NextElapseUSecRealtime='));
+        const nextRun = nextRunLine && nextRunLine !== 'NextElapseUSecRealtime=0'
+          ? (() => {
+              try {
+                const timestamp = parseInt(nextRunLine.split("=")[1]);
+                return timestamp && timestamp > 0 ? new Date(timestamp / 1000).toISOString() : null;
+              } catch (error) {
+                return null;
+              }
+            })()
+
+          : null;
+
+        resolve({ active, nextRun });
+      });
+    });
+  }
+
+  async getRecentErrors() {
+    try {
+      const query = `
+        SELECT
+          entity_type,
+          error_message,
+          last_sync_at,
+          records_failed
+        FROM sync_status
+        WHERE error_message IS NOT NULL
+          AND last_sync_at >= NOW() - INTERVAL '24 hours'
+        ORDER BY last_sync_at DESC
+        LIMIT 20;
+      `;
+
+      const result = await this.db.query(query);
+      return result.rows.map(row => ({
+        entityType: this.formatEntityType(row.entity_type),
+        message: row.error_message,
+        timestamp: row.last_sync_at,
+        failedRecords: row.records_failed || 0
+      }));
+    } catch (error) {
+      logger.error('Failed to get recent errors', { error: error.message });
+      return [];
+    }
+  }
+
+  async getPerformanceMetrics() {
+    try {
+      const query = `
+        SELECT
+          AVG(sync_duration_ms) as avg_duration,
+          COUNT(*) as total_syncs,
+          SUM(records_synced) as total_records
+        FROM sync_status
+        WHERE last_sync_at >= NOW() - INTERVAL '24 hours'
+          AND sync_duration_ms IS NOT NULL;
+      `;
+
+      const result = await this.db.query(query);
+      const metrics = result.rows[0] || {};
+
+      return {
+        averageSyncTime: metrics.avg_duration ? Math.round(metrics.avg_duration) : 0,
+        totalSyncs: parseInt(metrics.total_syncs) || 0,
+        totalRecordsProcessed: parseInt(metrics.total_records) || 0
+      };
+    } catch (error) {
+      logger.error('Failed to get performance metrics', { error: error.message });
+      return {
+        averageSyncTime: 0,
+        totalSyncs: 0,
+        totalRecordsProcessed: 0
+      };
+    }
+  }
+
+  async getTableCounts() {
+    try {
+      const query = `
+        SELECT
+          schemaname,
+          tablename,
+          n_tup_ins as inserts,
+          n_tup_upd as updates,
+          n_tup_del as deletes,
+          n_live_tup as live_rows,
+          n_dead_tup as dead_rows
+        FROM pg_stat_user_tables
+        WHERE schemaname = 'public'
+        ORDER BY n_live_tup DESC;
+      `;
+
+      const result = await this.db.query(query);
+      return result.rows.map(row => ({
+        table: row.tablename,
+        liveRows: parseInt(row.live_rows) || 0,
+        inserts: parseInt(row.inserts) || 0,
+        updates: parseInt(row.updates) || 0,
+        deletes: parseInt(row.deletes) || 0,
+        deadRows: parseInt(row.dead_rows) || 0
+      }));
+    } catch (error) {
+      logger.error('Failed to get table counts', { error: error.message });
+      return [];
+    }
+  }
+
+  async getActiveServices() {
+    return new Promise((resolve) => {
+      exec('systemctl list-units --type=service --state=active | grep congress | wc -l', (error, stdout) => {
+        resolve(parseInt(stdout.trim()) || 0);
+      });
+    });
+  }
+
+  async getSystemUptime() {
+    return new Promise((resolve) => {
+      exec('uptime -p', (error, stdout) => {
+        resolve(error ? 'unknown' : stdout.trim());
+      });
+    });
+  }
+
+  async getDatabaseConnections() {
+    try {
+      const result = await this.db.query('SELECT count(*) as connections FROM pg_stat_activity;');
+      return parseInt(result.rows[0].connections) || 0;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  generateExecutiveSummary(syncSummary, tableCounts) {
+    const totalRecords = tableCounts.reduce((sum, table) => sum + table.liveRows, 0);
+    const recentInserts = tableCounts.reduce((sum, table) => sum + table.inserts, 0);
+    const recentUpdates = tableCounts.reduce((sum, table) => sum + table.updates, 0);
+    const totalErrors = syncSummary.items?.reduce((sum, item) => sum + (item.errorCount || 0), 0) || 0;
+
+    const hasErrors = totalErrors > 0;
+    const hasMissingServices = syncSummary.missingServices?.length > 0;
+    const hasRecentActivity = syncSummary.recentActivity?.length > 0;
+
+    let status = 'SUCCESS';
+    if (hasErrors || hasMissingServices) {
+      status = 'ISSUES DETECTED';
+    } else if (!hasRecentActivity) {
+      status = 'NO RECENT ACTIVITY';
+    }
+
+    return {
+      status,
+      totalRecords,
+      newRecords: recentInserts,
+      updatedRecords: recentUpdates,
+      totalErrors,
+      servicesExpected: syncSummary.summary?.expectedToRun || 0,
+      servicesRan: syncSummary.summary?.servicesRanPast24h || 0,
+      servicesMissed: syncSummary.summary?.missedServices || 0
+    };
+  }
+
+  formatEntityType(entityType) {
+    if (!entityType) return 'Unknown';
+    return entityType
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  async close() {
+    if (this.db) {
+      await this.db.close();
+    }
+  }
+}
+
+module.exports = SyncDataCollector;

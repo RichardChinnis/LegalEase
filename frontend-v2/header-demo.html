@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Header Component Demo - Congress Tracker</title>
+    
+    <!-- Load CSS -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+</head>
+<body>
+    <!-- Error Log Container -->
+    <div id="error-log" style="display: none;"></div>
+    
+    <!-- Header Demo -->
+    <div id="header-container"></div>
+    
+    <!-- Demo Content -->
+    <main style="padding: 2rem;">
+        <h1>Header Component Demo</h1>
+        <p>This demonstrates the header component with universal search functionality.</p>
+        
+        <div style="margin-top: 2rem;">
+            <h2>Features Demonstrated:</h2>
+            <ul style="margin-left: 2rem; margin-top: 1rem;">
+                <li>Clean single-row header layout</li>
+                <li>Logo that links to homepage</li>
+                <li>Universal search with autocomplete</li>
+                <li>User profile icon</li>
+                <li>Responsive mobile design</li>
+                <li>Keyboard navigation support</li>
+                <li>Search categorization (Bills, Members, Topics)</li>
+                <li>Recent search history</li>
+            </ul>
+        </div>
+        
+        <div style="margin-top: 2rem; padding: 1rem; background-color: var(--color-background-secondary); border-radius: var(--radius-lg);">
+            <h3>Try the Search:</h3>
+            <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                <li>Type "healthcare" to see topic results</li>
+                <li>Type "H.R." to see bill format suggestions</li>
+                <li>Try member names like "Smith"</li>
+                <li>Use arrow keys to navigate results</li>
+                <li>Press Enter to select</li>
+            </ul>
+        </div>
+    </main>
+
+    <!-- Load JavaScript Dependencies -->
+    <script src="js/utils/events.js"></script>
+    <script src="js/utils/dom.js"></script>
+    <script src="js/utils/formatting.js"></script>
+    
+    <script src="js/error-handler.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/api-service.js"></script>
+    
+    <!-- Load Components -->
+    <script src="js/components/base-component.js"></script>
+    <script src="js/components/search-dropdown.js"></script>
+    <script src="js/components/search.js"></script>
+    <script src="js/components/header.js"></script>
+
+    <script>
+        // Initialize demo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize global state (simplified for demo)
+            if (typeof AppState !== 'undefined') {
+                AppState.isOnline = true;
+                AppState.rateLimitState = {
+                    isLimited: false,
+                    activeRequests: 0,
+                    retryAfter: null
+                };
+            }
+
+            // Create header component
+            const header = new Header({
+                logoText: 'Congress Tracker',
+                logoHref: '/',
+                showUserProfile: true
+            });
+
+            // Mount header
+            const container = document.getElementById('header-container');
+            header.mount(container);
+
+            // Listen for search events (for demo purposes)
+            header.on('search:select', function(data) {
+                console.log('Search selection:', data);
+                alert(`Selected ${data.type}: ${data.item.title || data.item.name || 'Unknown'}`);
+            });
+
+            // Listen for user profile clicks
+            header.on('user:profile-click', function() {
+                console.log('User profile clicked');
+                alert('User profile menu would appear here');
+            });
+
+            // Global event bus listeners for demo
+            if (typeof EventBus !== 'undefined') {
+                EventBus.on('search:select', function(data) {
+                    console.log('Global search event:', data);
+                });
+
+                EventBus.on('navigate:bill', function(data) {
+                    console.log('Navigate to bill:', data.billId);
+                    alert(`Would navigate to bill: ${data.billId}`);
+                });
+
+                EventBus.on('navigate:member', function(data) {
+                    console.log('Navigate to member:', data.memberId);
+                    alert(`Would navigate to member: ${data.memberId}`);
+                });
+
+                EventBus.on('navigate:topic', function(data) {
+                    console.log('Navigate to topic:', data.topicId);
+                    alert(`Would navigate to topic: ${data.topicId}`);
+                });
+            }
+
+            // Header demo initialized
+        });
+
+        // Add some demo keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Focus search with Ctrl/Cmd + K
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                const searchInput = document.querySelector('.search__input');
+                if (searchInput) {
+                    searchInput.focus();
+                }
+            }
+        });
+    </script>
+
+    <style>
+        /* Demo-specific styles */
+        body {
+            margin: 0;
+        }
+        
+        main ul {
+            list-style: disc;
+        }
+        
+        main li {
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Add some spacing for demo */
+        #header-container {
+            margin-bottom: 0;
+        }
+        
+        /* Ensure proper display */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</body>
+</html>

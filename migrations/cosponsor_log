@@ -1,0 +1,58 @@
+==============================================
+FIXING bill_cosponsor TABLE - CORRECT ORDER
+==============================================
+
+1. Adding cosponsor_id column...
+psql:009-fix-cosponsor-table.sql:11: NOTICE:  column "cosponsor_id" of relation "bill_cosponsor" already exists, skipping
+ALTER TABLE
+   ✓ cosponsor_id column added
+2. Creating sequence...
+psql:009-fix-cosponsor-table.sql:24: ERROR:  sequence must have same owner as table it is linked to
+CONTEXT:  SQL statement "CREATE SEQUENCE bill_cosponsor_cosponsor_id_seq OWNED BY bill_cosponsor.cosponsor_id"
+PL/pgSQL function inline_code_block line 4 at SQL statement
+3. Setting sequence as default...
+psql:009-fix-cosponsor-table.sql:28: ERROR:  relation "bill_cosponsor_cosponsor_id_seq" does not exist
+   ✓ Set sequence as default for cosponsor_id
+4. Populating existing NULL values...
+psql:009-fix-cosponsor-table.sql:33: ERROR:  relation "bill_cosponsor_cosponsor_id_seq" does not exist
+LINE 1: UPDATE bill_cosponsor SET cosponsor_id = nextval('bill_cospo...
+                                                         ^
+   ✓ Populated cosponsor_id for existing records
+5. Setting NOT NULL constraint...
+ALTER TABLE
+   ✓ cosponsor_id set to NOT NULL
+6. Updating primary key...
+psql:009-fix-cosponsor-table.sql:57: NOTICE:     ✓ Dropped old primary key
+psql:009-fix-cosponsor-table.sql:57: NOTICE:     ✓ Added cosponsor_id primary key
+DO
+7. Fixing connection limit...
+ALTER ROLE
+   ✓ Increased connection limit for sync user to 50
+
+8. VERIFICATION...
+             info              
+-------------------------------
+ bill_cosponsor columns check:
+(1 row)
+
+   column_name    |     data_type     | is_nullable | column_default 
+------------------+-------------------+-------------+----------------
+ bioguide_id      | character varying | YES         | 
+ cosponsor_id     | integer           | NO          | 
+ sponsorship_date | date              | YES         | 
+(3 rows)
+
+        info        
+--------------------
+ Primary key check:
+(1 row)
+
+       conname       | contype 
+---------------------+---------
+ bill_cosponsor_pkey | p
+(1 row)
+
+
+==============================================
+bill_cosponsor FIX COMPLETED!
+==============================================

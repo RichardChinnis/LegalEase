@@ -1,0 +1,14 @@
+{
+  "name": "congress-postgres-mcp",
+  "version": "1.0.0",
+  "description": "Custom PostgreSQL MCP server for Congress API database",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "pg": "^8.20.0"
+  }
+}

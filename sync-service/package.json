@@ -1,0 +1,32 @@
+{
+  "name": "congress-sync-service",
+  "version": "1.0.0",
+  "description": "Congressional data synchronization microservice",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "sync:bills": "node sync-bills.js",
+    "sync:full": "node index.js --full",
+    "sync:incremental": "node index.js --incremental"
+  },
+  "dependencies": {
+    "axios": "^1.15.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "fast-xml-parser": "^5.7.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.5",
+    "p-limit": "^3.1.0",
+    "pg": "^8.20.0",
+    "rss-parser": "^3.13.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "overrides": {
+    "follow-redirects": "^1.16.0",
+    "picomatch": "^2.3.2"
+  }
+}

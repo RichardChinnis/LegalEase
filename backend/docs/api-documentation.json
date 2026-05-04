@@ -1,0 +1,153 @@
+
+{
+  "bill": {
+    "description": "This document provides documentation for the bill endpoints of the Congress.gov API.",
+    "coverage_info": "Coverage information for bill data can be found at Coverage Dates for Congress.gov Collections.",
+    "openapi_spec": "https://api.congress.gov",
+    "levels": {
+      "list": {
+        "description": "Provides a list of bills and can be filtered by congress and bill type.",
+        "fields": [
+          { "name": "congress", "type": "string" },
+          { "name": "type", "type": "string" },
+          { "name": "originChamber", "type": "string" },
+          { "name": "number", "type": "string" },
+          { "name": "url", "type": "string" },
+          { "name": "title", "type": "string" },
+          { "name": "updateDateIncludingText", "type": "string", "format": "date-time" },
+          { "name": "latestAction", "type": "object", "properties": [
+            { "name": "actionDate", "type": "string", "format": "date" },
+            { "name": "text", "type": "string" }
+          ]}
+        ]
+      },
+      "item": {
+        "description": "Provides detailed information for a specific bill.",
+        "fields": [
+          { "name": "number", "type": "string" },
+          { "name": "updateDate", "type": "string", "format": "date-time" },
+          { "name": "originChamber", "type": "string" },
+          { "name": "type", "type": "string" },
+          { "name": "introducedDate", "type": "string", "format": "date" },
+          { "name": "congress", "type": "integer" },
+          { "name": "committees", "type": "object" },
+          { "name": "relatedBills", "type": "object" },
+          { "name": "actions", "type": "object" },
+          { "name": "sponsors", "type": "object" },
+          { "name": "cosponsors", "type": "object" },
+          { "name": "cboCostEstimates", "type": "array" },
+          { "name": "laws", "type": "array" },
+          { "name": "notes", "type": "array" },
+          { "name": "policyArea", "type": "object" },
+          { "name": "subjects", "type": "object" },
+          { "name": "summaries", "type": "object" },
+          { "name": "titles", "type": "object" },
+          { "name": "amendments", "type": "object" },
+          { "name": "textVersions", "type": "object" },
+          { "name": "latestAction", "type": "object" }
+        ]
+      }
+    }
+  },
+  "member": {
+    "description": "This document outlines the Member endpoint of the Congress.gov API, providing information on how to retrieve data about members of Congress.",
+    "coverage_info": "Information on the historical coverage of member data can be found in the 'Coverage Dates for Congress.gov Collections'.",
+    "openapi_spec": "https://api.congress.gov",
+    "levels": {
+      "list": {
+        "fields": [
+          { "name": "bioguideId", "type": "string" },
+          { "name": "state", "type": "string" },
+          { "name": "party", "type": "string" },
+          { "name": "district", "type": "string" },
+          { "name": "name", "type": "string" },
+          { "name": "terms", "type": "object" }
+        ]
+      },
+      "item": {
+        "fields": [
+          { "name": "currentMember", "type": "boolean" },
+          { "name": "birthYear", "type": "string" },
+          { "name": "deathYear", "type": "string" },
+          { "name": "updateDate", "type": "string", "format": "date-time" },
+          { "name": "terms", "type": "array" },
+          { "name": "contact", "type": "object" },
+          { "name": "leadership", "type": "array" },
+          { "name": "sponsoredLegislation", "type": "object", "properties": [
+            { "name": "count", "type": "integer" },
+            { "name": "url", "type": "string" }
+          ]},
+          { "name": "cosponsoredLegislation", "type": "object", "properties": [
+            { "name": "count", "type": "integer" },
+            { "name": "url", "type": "string" }
+          ]}
+        ]
+      }
+    }
+  },
+  "amendment": {
+    "description": "This document outlines the structure of the Amendment endpoints in the Congress.gov API.",
+    "coverage_info": "Amendment data coverage can be found at 'Coverage Dates for Congress.gov Collections'.",
+    "openapi_spec": "https://api.congress.gov",
+    "levels": {
+      "list": {
+        "fields": [
+          { "name": "amendment", "type": "object" },
+          { "name": "number", "type": "string" },
+          { "name": "description", "type": "string" },
+          { "name": "purpose", "type": "string" },
+          { "name": "congress", "type": "integer" },
+          { "name": "type", "type": "string" },
+          { "name": "updateDate", "type": "string", "format": "date-time" },
+          { "name": "latestAction", "type": "object" }
+        ]
+      },
+      "item": {
+        "fields": [
+          { "name": "sponsors", "type": "object" },
+          { "name": "cosponsors", "type": "object" },
+          { "name": "proposedDate", "type": "string", "format": "date" },
+          { "name": "submittedDate", "type": "string", "format": "date" },
+          { "name": "chamber", "type": "string" },
+          { "name": "amendedBill", "type": "object" },
+          { "name": "amendedAmendment", "type": "object" },
+          { "name": "amendmentsToAmendment", "type": "object" },
+          { "name": "notes", "type": "array" },
+          { "name": "amendedTreaty", "type": "object" }
+        ]
+      }
+    }
+  },
+  "committee": {
+    "description": "This document describes the Committee endpoints for the api.congress.gov API.",
+    "coverage_info": "Coverage information for committee data in the API can be found at Coverage Dates for Congress.gov Collections.",
+    "openapi_spec": "https://api.congress.gov/#/committee/committee_list",
+    "levels": {
+      "list": {
+        "fields": [
+          { "name": "url", "type": "string" },
+          { "name": "systemCode", "type": "string" },
+          { "name": "name", "type": "string" },
+          { "name": "parentCommittee", "type": "object" },
+          { "name": "subcommittees", "type": "array" },
+          { "name": "chamber", "type": "string" },
+          { "name": "type", "type": "string" }
+        ]
+      },
+      "item": {
+        "fields": [
+          { "name": "systemCode", "type": "string" },
+          { "name": "parentCommittee", "type": "object" },
+          { "name": "updateDate", "type": "string", "format": "date-time" },
+          { "name": "isCurrent", "type": "boolean" },
+          { "name": "subcommittees", "type": "array" },
+          { "name": "reports", "type": "object" },
+          { "name": "communications", "type": "object" },
+          { "name": "bills", "type": "object" },
+          { "name": "nominations", "type": "object" },
+          { "name": "history", "type": "array" }
+        ]
+      }
+    }
+  }
+}

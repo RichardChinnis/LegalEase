@@ -1,0 +1,33 @@
+# Apache vhost example for serving the frontend-v2 static files and proxying
+# /api requests to the Node.js backend.
+#
+# Copy to congress-api.conf, edit the paths/ServerName for your environment,
+# then enable with: a2ensite congress-api && systemctl reload apache2
+#
+# Required modules (load once at the Apache level):
+#   a2enmod proxy proxy_http rewrite
+
+<VirtualHost *:80>
+    ServerName example.local
+    # ServerAlias www.example.com
+
+    DocumentRoot /path/to/congress-api/frontend-v2
+
+    <Directory /path/to/congress-api/frontend-v2>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # Proxy API requests to the Node.js backend
+    ProxyPreserveHost On
+    ProxyPass /api/ http://localhost:3000/api/
+    ProxyPassReverse /api/ http://localhost:3000/api/
+
+    # Health check
+    ProxyPass /health http://localhost:3000/health
+    ProxyPassReverse /health http://localhost:3000/health
+
+    ErrorLog ${APACHE_LOG_DIR}/congress-api_error.log
+    CustomLog ${APACHE_LOG_DIR}/congress-api_access.log combined
+</VirtualHost>

@@ -1,0 +1,1257 @@
+/* ==========================================================================
+   How Bills Work -- Educational Modal
+   Full-screen interactive pipeline map with environment controls
+   and stage detail panel.  Uses the editorial design language:
+   warm paper tones, Playfair Display headlines, Source Serif for
+   reading, Source Sans for UI, gold accents for the Learn section.
+   ========================================================================== */
+
+/* 1. Modal Override
+   --------------------------------------------------------------------------
+   The ModalComponent renders .modal__content inside .modal.  We scope
+   overrides through the .hbw-modal class added to the outer .modal
+   element so that these rules never bleed into other modals.
+   -------------------------------------------------------------------------- */
+
+.hbw-modal.modal {
+  padding: 0;
+}
+
+.hbw-modal .modal__content {
+  width: 95vw;
+  max-width: 95vw;
+  height: 90vh;
+  max-height: 90vh;
+  border-radius: var(--radius-xl);
+  background-color: var(--color-background-primary);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hbw-modal .modal__header {
+  background-color: var(--color-gold-bg);
+  border-bottom: 2px solid var(--color-gold);
+  padding: var(--space-md) var(--space-xl);
+  flex-shrink: 0;
+}
+
+.hbw-modal .modal__title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.hbw-modal .modal__body {
+  padding: 0;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 2. Layout Grid
+   --------------------------------------------------------------------------
+   Top row: pipeline map spanning full width  (~40% height)
+   Bottom row: controls on the left, detail on the right  (~60% height)
+   -------------------------------------------------------------------------- */
+
+.hbw-layout {
+  display: grid;
+  grid-template-rows: minmax(200px, 2fr) minmax(300px, 3fr);
+  grid-template-columns: minmax(280px, 2fr) minmax(400px, 3fr);
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 3. Pipeline Map
+   --------------------------------------------------------------------------
+   Horizontal flowchart spanning the full top row.
+   Two-row internal grid: main path on top, branch nodes below.
+   -------------------------------------------------------------------------- */
+
+.hbw-map {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: auto auto;
+  gap: var(--space-md);
+  align-items: start;
+  align-content: center;
+  padding: var(--space-lg) var(--space-xl);
+  background-color: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border-primary);
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+
+  /* Subtle scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.hbw-map::-webkit-scrollbar {
+  height: 6px;
+}
+
+.hbw-map::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hbw-map::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+/* 4. Map Nodes
+   --------------------------------------------------------------------------
+   Rounded rectangles with a stage label on top and a probability badge
+   below.  Background colour shifts smoothly via heat modifier classes.
+   -------------------------------------------------------------------------- */
+
+.hbw-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-width: 120px;
+  padding: var(--space-md) var(--space-sm);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-background-tertiary);
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  transition:
+    background-color 400ms var(--ease-out-quart),
+    border-color 400ms var(--ease-out-quart),
+    box-shadow var(--duration-fast) var(--ease-out-expo),
+    transform var(--duration-fast) var(--ease-out-expo);
+}
+
+.hbw-node:hover {
+  box-shadow: var(--shadow-editorial-md);
+  transform: translateY(-2px);
+}
+
+.hbw-node:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/* Heat colour classes -- tinted backgrounds with matching borders */
+.hbw-node--heat-green {
+  background-color: rgba(45, 106, 79, 0.12);
+  border-color: var(--color-success);
+}
+
+.hbw-node--heat-gold {
+  background-color: rgba(184, 134, 11, 0.12);
+  border-color: var(--color-gold);
+}
+
+.hbw-node--heat-red {
+  background-color: rgba(155, 44, 44, 0.12);
+  border-color: var(--color-danger);
+}
+
+/* Selected node -- ring + subtle scale */
+.hbw-node--selected {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.3);
+  transform: scale(1.05);
+}
+
+.hbw-node--selected:hover {
+  transform: scale(1.05);
+}
+
+/* Branch / terminal nodes -- smaller, dashed, muted */
+.hbw-node--branch {
+  min-width: 100px;
+  padding: var(--space-sm) var(--space-xs);
+  border-style: dashed;
+  opacity: 0.85;
+  font-size: var(--font-size-sm);
+}
+
+/* 5. Node Internal Elements
+   -------------------------------------------------------------------------- */
+
+.hbw-node__label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+}
+
+.hbw-node__badge {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Badge colour inherits from heat classes */
+.hbw-node--heat-green .hbw-node__badge {
+  color: var(--color-success);
+  background-color: rgba(45, 106, 79, 0.1);
+}
+
+.hbw-node--heat-gold .hbw-node__badge {
+  color: var(--color-gold);
+  background-color: rgba(184, 134, 11, 0.1);
+}
+
+.hbw-node--heat-red .hbw-node__badge {
+  color: var(--color-danger);
+  background-color: rgba(155, 44, 44, 0.1);
+}
+
+/* 6. Map Arrows / Connections
+   --------------------------------------------------------------------------
+   An SVG element is absolutely positioned over the grid.  The CSS
+   here controls stroke appearance; arrow positions are set in JS.
+   -------------------------------------------------------------------------- */
+
+.hbw-map__arrows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hbw-arrow--solid {
+  stroke: var(--color-border-secondary);
+  stroke-width: 2;
+  fill: none;
+}
+
+.hbw-arrow--dashed {
+  stroke: var(--color-border-secondary);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  fill: none;
+}
+
+.hbw-arrow__head {
+  fill: var(--color-border-secondary);
+}
+
+/* Ensure nodes sit above arrows */
+.hbw-node {
+  position: relative;
+  z-index: 1;
+}
+
+/* 7. Environment Controls Panel
+   --------------------------------------------------------------------------
+   Left side of the bottom row.  Scrollable form with gold accent
+   background and a separator border on the right edge.
+   -------------------------------------------------------------------------- */
+
+.hbw-controls {
+  grid-column: 1;
+  grid-row: 2;
+  background-color: var(--color-gold-bg);
+  border-right: 1px solid var(--color-border-primary);
+  padding: var(--space-lg);
+  overflow-y: auto;
+  min-height: 0;
+
+  /* Subtle scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.hbw-controls::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hbw-controls::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hbw-controls::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+/* Control groups - reset fieldset defaults */
+fieldset.hbw-controls__group {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.hbw-controls__group {
+  margin-bottom: var(--space-lg);
+}
+
+.hbw-controls__group:last-child {
+  margin-bottom: 0;
+}
+
+.hbw-controls__label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+/* Toggle group -- sponsor party D / R / I */
+.hbw-toggle-group {
+  display: inline-flex;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  border: 1px solid var(--color-border-secondary);
+  background-color: var(--color-background-secondary);
+}
+
+.hbw-toggle-group__btn {
+  padding: var(--space-xs) var(--space-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out-expo),
+    color var(--duration-fast) var(--ease-out-expo);
+  line-height: var(--line-height-base);
+}
+
+.hbw-toggle-group__btn:not(:last-child) {
+  border-right: 1px solid var(--color-border-secondary);
+}
+
+.hbw-toggle-group__btn:hover {
+  background-color: var(--color-background-tertiary);
+}
+
+.hbw-toggle-group__btn:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: -2px;
+}
+
+/* Active party colours */
+.hbw-toggle-group__btn--active-d {
+  background-color: var(--color-democrat);
+  color: var(--color-text-inverse);
+  border-color: var(--color-democrat);
+}
+
+.hbw-toggle-group__btn--active-r {
+  background-color: var(--color-republican);
+  color: var(--color-text-inverse);
+  border-color: var(--color-republican);
+}
+
+.hbw-toggle-group__btn--active-i {
+  background-color: var(--color-independent);
+  color: var(--color-text-inverse);
+  border-color: var(--color-independent);
+}
+
+/* Segmented control -- majority strength */
+.hbw-segment-control {
+  display: flex;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border-secondary);
+  background-color: var(--color-background-secondary);
+}
+
+.hbw-segment-control__option {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-out-expo),
+    color var(--duration-fast) var(--ease-out-expo);
+  line-height: var(--line-height-base);
+}
+
+.hbw-segment-control__option:not(:last-child) {
+  border-right: 1px solid var(--color-border-secondary);
+}
+
+.hbw-segment-control__option:hover {
+  background-color: var(--color-background-tertiary);
+}
+
+.hbw-segment-control__option:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: -2px;
+}
+
+.hbw-segment-control__option--active {
+  background-color: var(--color-gold);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-semibold);
+}
+
+.hbw-segment-control__option--active:hover {
+  background-color: var(--color-gold-light);
+}
+
+/* Styled select -- topic dropdown */
+.hbw-select {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background-color: var(--color-background-secondary);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%234a4a4a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-sm) center;
+  padding-right: var(--space-xl);
+  transition: border-color var(--duration-fast) var(--ease-out-expo);
+}
+
+.hbw-select:focus {
+  outline: none;
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.2);
+}
+
+.hbw-select:hover {
+  border-color: var(--color-gold-light);
+}
+
+/* Type toggle -- Standard | Budget */
+.hbw-type-toggle {
+  display: inline-flex;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border-secondary);
+  background-color: var(--color-background-secondary);
+}
+
+.hbw-type-toggle__btn {
+  padding: var(--space-xs) var(--space-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out-expo),
+    color var(--duration-fast) var(--ease-out-expo);
+  line-height: var(--line-height-base);
+}
+
+.hbw-type-toggle__btn:not(:last-child) {
+  border-right: 1px solid var(--color-border-secondary);
+}
+
+.hbw-type-toggle__btn:hover {
+  background-color: var(--color-background-tertiary);
+}
+
+.hbw-type-toggle__btn:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: -2px;
+}
+
+.hbw-type-toggle__btn--active {
+  background-color: var(--color-gold);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-semibold);
+}
+
+.hbw-type-toggle__btn--active:hover {
+  background-color: var(--color-gold-light);
+}
+
+/* Scenario summary -- pull-quote style */
+.hbw-scenario {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-lg);
+  font-style: italic;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+  padding: var(--space-md) 0;
+  margin-bottom: var(--space-lg);
+  border-top: 2px solid var(--color-gold);
+  border-bottom: 1px solid rgba(184, 134, 11, 0.3);
+}
+
+/* "This Congress" reset link */
+.hbw-controls__reset {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gold);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  transition: color var(--duration-fast) var(--ease-out-expo);
+}
+
+.hbw-controls__reset:hover {
+  color: var(--color-gold-light);
+  text-decoration-style: solid;
+}
+
+.hbw-controls__reset:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* 8. Stage Detail Panel
+   --------------------------------------------------------------------------
+   Right side of the bottom row.  Scrollable, clean white background,
+   rich typographic hierarchy.
+   -------------------------------------------------------------------------- */
+
+.hbw-detail {
+  grid-column: 2;
+  grid-row: 2;
+  background-color: var(--color-background-secondary);
+  padding: var(--space-xl);
+  overflow-y: auto;
+  min-height: 0;
+
+  /* Subtle scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.hbw-detail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hbw-detail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hbw-detail::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+/* Detail: stage title */
+.hbw-detail__title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--space-lg) 0;
+}
+
+/* Detail: generic content section */
+.hbw-detail__section {
+  margin-bottom: var(--space-xl);
+}
+
+.hbw-detail__section:last-child {
+  margin-bottom: 0;
+}
+
+/* Detail: section heading -- uppercase label, like module-title */
+.hbw-detail__heading {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-md) 0;
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+/* Detail: section body text */
+.hbw-detail__text {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* Key players */
+.hbw-detail__players {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.hbw-detail__player {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background-color: var(--color-background-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-md);
+}
+
+.hbw-detail__player-role {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.hbw-detail__player-desc {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-base);
+}
+
+/* Outcomes list */
+.hbw-detail__outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.hbw-detail__outcome {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-background-primary);
+  border-left: 3px solid transparent;
+}
+
+.hbw-detail__outcome--advance {
+  border-left-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.hbw-detail__outcome--fail {
+  border-left-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.hbw-detail__outcome--lateral {
+  border-left-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+/* Stats box */
+.hbw-detail__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background-color: var(--color-background-primary);
+  border: 1px solid var(--color-border-primary);
+  border-left: 3px solid var(--color-gold);
+  border-radius: var(--radius-md);
+}
+
+.hbw-detail__stats-header {
+  grid-column: 1 / -1;
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  margin-bottom: var(--space-xs);
+}
+
+.hbw-detail__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-xs);
+}
+
+.hbw-detail__stat-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.hbw-detail__stat-label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  line-height: var(--line-height-tight);
+}
+
+/* Simulation insight callout */
+.hbw-detail__insight {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-base);
+  font-style: italic;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  padding: var(--space-md) var(--space-lg);
+  background-color: var(--color-gold-bg);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-gold);
+  transition:
+    opacity var(--duration-normal) var(--ease-out-expo),
+    transform var(--duration-normal) var(--ease-out-expo);
+}
+
+/* Welcome / empty state */
+.hbw-detail__welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
+  min-height: 200px;
+  padding: var(--space-2xl);
+  color: var(--color-text-tertiary);
+}
+
+.hbw-detail__welcome-icon {
+  font-size: var(--font-size-4xl);
+  margin-bottom: var(--space-lg);
+  opacity: 0.5;
+}
+
+.hbw-detail__welcome-title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.hbw-detail__welcome-text {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  color: var(--color-text-tertiary);
+  max-width: 320px;
+  line-height: var(--line-height-relaxed);
+}
+
+/* 8b. Committee Sub-Hurdles
+   -------------------------------------------------------------------------- */
+
+.hbw-detail__hurdles {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.hbw-detail__hurdles-header {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-md);
+}
+
+.hbw-detail__hurdle {
+  margin-bottom: var(--space-lg);
+}
+
+.hbw-detail__hurdle:last-child {
+  margin-bottom: 0;
+}
+
+.hbw-detail__hurdle-label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.hbw-detail__hurdle-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-gold-bg);
+  color: var(--color-gold);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+.hbw-detail__hurdle-bar {
+  height: 6px;
+  background: var(--color-border-light);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: var(--space-xs);
+}
+
+.hbw-detail__hurdle-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-gold);
+  transition: width 0.4s var(--ease-standard);
+}
+
+.hbw-detail__hurdle-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2xs);
+}
+
+.hbw-detail__hurdle-rate {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gold);
+}
+
+.hbw-detail__hurdle-count {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.hbw-detail__hurdle-desc {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* 9. Animations
+   -------------------------------------------------------------------------- */
+
+.hbw-fade-in {
+  animation: hbwFadeIn var(--duration-fast) ease-out;
+}
+
+@keyframes hbwFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered fade for nodes entering the map */
+.hbw-node {
+  animation: hbwNodeIn var(--duration-normal) var(--ease-out-expo) both;
+}
+
+@keyframes hbwNodeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Apply stagger delays through nth-child for up to 10 nodes */
+.hbw-node:nth-child(1)  { animation-delay: 0ms; }
+.hbw-node:nth-child(2)  { animation-delay: var(--stagger-1); }
+.hbw-node:nth-child(3)  { animation-delay: var(--stagger-2); }
+.hbw-node:nth-child(4)  { animation-delay: var(--stagger-3); }
+.hbw-node:nth-child(5)  { animation-delay: var(--stagger-4); }
+.hbw-node:nth-child(6)  { animation-delay: var(--stagger-5); }
+.hbw-node:nth-child(7)  { animation-delay: 300ms; }
+.hbw-node:nth-child(8)  { animation-delay: 350ms; }
+.hbw-node:nth-child(9)  { animation-delay: 400ms; }
+.hbw-node:nth-child(10) { animation-delay: 450ms; }
+
+/* Detail panel content transition */
+.hbw-detail__section {
+  animation: hbwFadeIn var(--duration-fast) ease-out;
+}
+
+/* 10. Accessibility
+   --------------------------------------------------------------------------
+   .sr-only is already defined globally in components.css.
+   We add a focus-within highlight to the map for keyboard navigation.
+   -------------------------------------------------------------------------- */
+
+.hbw-map:focus-within {
+  outline: 2px solid var(--color-gold);
+  outline-offset: -2px;
+}
+
+/* Ensure keyboard focus is clearly visible on all interactive elements */
+.hbw-toggle-group__btn:focus-visible,
+.hbw-segment-control__option:focus-visible,
+.hbw-type-toggle__btn:focus-visible,
+.hbw-select:focus-visible,
+.hbw-controls__reset:focus-visible,
+.hbw-node:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/* High contrast mode overrides */
+@media (prefers-contrast: high) {
+  .hbw-node {
+    border-width: 3px;
+  }
+
+  .hbw-node--heat-green {
+    background-color: rgba(45, 106, 79, 0.25);
+  }
+
+  .hbw-node--heat-gold {
+    background-color: rgba(184, 134, 11, 0.25);
+  }
+
+  .hbw-node--heat-red {
+    background-color: rgba(155, 44, 44, 0.25);
+  }
+
+  .hbw-node--selected {
+    box-shadow: 0 0 0 4px rgba(184, 134, 11, 0.5);
+  }
+
+  .hbw-detail__outcome {
+    border-left-width: 4px;
+  }
+
+  .hbw-detail__stats {
+    border-left-width: 4px;
+  }
+}
+
+/* Reduced motion -- disable animations gracefully */
+@media (prefers-reduced-motion: reduce) {
+  .hbw-fade-in,
+  .hbw-node,
+  .hbw-detail__section {
+    animation: none;
+  }
+
+  .hbw-node {
+    transition:
+      background-color 0ms,
+      border-color 0ms,
+      box-shadow 0ms,
+      transform 0ms;
+  }
+
+  .hbw-detail__insight {
+    transition: none;
+  }
+}
+
+/* 11. Responsive
+   -------------------------------------------------------------------------- */
+
+/* Below 1024px: smaller nodes, bottom panels stack vertically */
+@media (max-width: 1024px) {
+  .hbw-modal .modal__content {
+    width: 98vw;
+    max-width: 98vw;
+    height: 95vh;
+    max-height: 95vh;
+  }
+
+  .hbw-layout {
+    grid-template-rows: minmax(160px, auto) minmax(200px, 1fr) minmax(200px, 1fr);
+    grid-template-columns: 1fr;
+  }
+
+  .hbw-map {
+    grid-column: 1;
+    grid-row: 1;
+    padding: var(--space-md);
+    gap: var(--space-sm);
+  }
+
+  .hbw-node {
+    min-width: 96px;
+    padding: var(--space-sm) var(--space-xs);
+  }
+
+  .hbw-node__label {
+    font-size: var(--font-size-xs);
+  }
+
+  .hbw-node--branch {
+    min-width: 80px;
+  }
+
+  .hbw-controls {
+    grid-column: 1;
+    grid-row: 2;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-primary);
+    padding: var(--space-md);
+    overflow-y: auto;
+    max-height: 40vh;
+  }
+
+  .hbw-detail {
+    grid-column: 1;
+    grid-row: 3;
+    padding: var(--space-lg);
+    overflow-y: auto;
+  }
+
+  .hbw-detail__stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Below 768px: single column, map as compact layout, controls collapse */
+@media (max-width: 768px) {
+  .hbw-modal.modal {
+    padding: 0;
+  }
+
+  .hbw-modal .modal__content {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .hbw-modal .modal__header {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .hbw-modal .modal__title {
+    font-size: var(--font-size-lg);
+  }
+
+  .hbw-layout {
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  /* Map becomes a compact vertical timeline on mobile */
+  .hbw-map {
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .hbw-node {
+    min-width: unset;
+    padding: var(--space-sm);
+  }
+
+  .hbw-node__label {
+    font-size: 11px;
+  }
+
+  .hbw-node__badge {
+    font-size: 10px;
+  }
+
+  .hbw-node--branch {
+    min-width: unset;
+  }
+
+  /* Controls collapse behind a toggle on mobile */
+  .hbw-controls {
+    grid-column: 1;
+    grid-row: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-primary);
+    padding: var(--space-md);
+    max-height: none;
+  }
+
+  .hbw-controls--collapsed {
+    max-height: 0;
+    padding: 0 var(--space-md);
+    overflow: hidden;
+    border-bottom: none;
+    transition: max-height var(--duration-normal) var(--ease-out-quart),
+                padding var(--duration-normal) var(--ease-out-quart);
+  }
+
+  .hbw-controls--expanded {
+    max-height: 500px;
+    padding: var(--space-md);
+    overflow-y: auto;
+    transition: max-height var(--duration-normal) var(--ease-out-quart),
+                padding var(--duration-normal) var(--ease-out-quart);
+  }
+
+  /* Controls toggle button -- only visible on mobile */
+  .hbw-controls__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-gold);
+    background-color: var(--color-gold-bg);
+    border: none;
+    border-bottom: 1px solid rgba(184, 134, 11, 0.3);
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-out-expo);
+  }
+
+  .hbw-controls__toggle:hover {
+    background-color: rgba(184, 134, 11, 0.12);
+  }
+
+  .hbw-controls__toggle:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: -2px;
+  }
+
+  .hbw-detail {
+    grid-column: 1;
+    grid-row: auto;
+    padding: var(--space-md);
+  }
+
+  .hbw-detail__title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .hbw-detail__stats {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .hbw-detail__stat {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .hbw-detail__player {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .hbw-detail__player-role {
+    min-width: unset;
+  }
+
+  .hbw-scenario {
+    font-size: var(--font-size-base);
+  }
+
+  .hbw-segment-control {
+    flex-wrap: wrap;
+  }
+
+  .hbw-segment-control__option {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+}
+
+/* Hide the controls toggle on desktop -- it is only relevant on mobile */
+.hbw-controls__toggle {
+  display: none;
+}
+
+/* Print styles */
+@media print {
+  .hbw-modal .modal__content {
+    width: 100%;
+    height: auto;
+    max-height: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .hbw-layout {
+    display: block;
+    height: auto;
+  }
+
+  .hbw-map,
+  .hbw-controls,
+  .hbw-detail {
+    overflow: visible;
+    max-height: none;
+    border: none;
+    page-break-inside: avoid;
+  }
+
+  .hbw-node {
+    animation: none;
+    break-inside: avoid;
+  }
+
+  .hbw-controls__toggle {
+    display: none;
+  }
+}
