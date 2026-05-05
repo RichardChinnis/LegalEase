@@ -135,6 +135,12 @@ CLAUDE.local.md
 # Local release helper — never ships publicly, even on /main
 /release-to-public.sh
 
+# Local credential-rotation helper
+/rotate-sync-writer-password.sh
+
+# Local public-snapshot dump helper
+/dump-public-snapshot.sh
+
 # Superseded by schema.sql (historical, kept locally for reference)
 /init_db.sql
 
