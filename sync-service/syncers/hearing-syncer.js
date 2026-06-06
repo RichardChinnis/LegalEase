@@ -642,7 +642,9 @@ class HearingSyncer {
       // Calculate from date
       const fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - days);
-      const fromDateString = fromDate.toISOString().split('T')[0];
+      // Use full ISO-8601 (YYYY-MM-DDThh:mm:ssZ) so the Congress.gov fromDateTime
+      // filter is actually honored; a date-only value is silently ignored here.
+      const fromDateString = fromDate.toISOString().split('.')[0] + 'Z';
 
       logger.info('Starting recent hearings sync', {
         congress: currentCongress,

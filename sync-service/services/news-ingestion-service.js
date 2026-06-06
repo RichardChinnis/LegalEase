@@ -632,6 +632,7 @@ class NewsIngestionService {
               title: m.newsItem.title,
               source: m.newsItem.source,
               link: m.newsItem.link,
+              guid: m.newsItem.guid,
               context: m.context
             }))
           });
@@ -871,6 +872,16 @@ class NewsIngestionService {
       };
     }
 
+    // Persist raw fetched items to news_item (bulk upsert). Capture the
+    // guid -> item_id map so bill<->news links can be resolved below.
+    // Wrapped so persistence failures never break spotlight generation.
+    let guidToItemId = new Map();
+    try {
+      guidToItemId = await this.storeNewsItems(newsItems);
+    } catch (error) {
+      console.error('[NewsIngestion] storeNewsItems failed (non-fatal):', error.message);
+    }
+
     // Extract bill mentions
     const billMentions = this.extractBillMentions(newsItems);
     console.log(`[NewsIngestion] Found ${billMentions.length} unique bill mentions`);
@@ -882,6 +893,14 @@ class NewsIngestionService {
     // Lookup mentioned bills in database
     const mentionedBills = await this.lookupMentionedBills(billMentions);
     console.log(`[NewsIngestion] Found ${mentionedBills.length} mentioned bills in database`);
+
+    // Persist bill <-> news links using the matches just computed.
+    // Wrapped so persistence failures never break spotlight generation.
+    try {
+      await this.storeBillNewsMentions(mentionedBills, guidToItemId);
+    } catch (error) {
+      console.error('[NewsIngestion] storeBillNewsMentions failed (non-fatal):', error.message);
+    }
 
     // Find topically relevant bills (news → bills)
     const topicalBills = await this.findMatchingBills(keywordAnalysis);
@@ -901,6 +920,14 @@ class NewsIngestionService {
       billsWithCoverage,
       keywordMatchedBills
     );
+
+    // Refresh the trending_topic table from the keyword data already computed.
+    // Wrapped so persistence failures never break spotlight generation.
+    try {
+      await this.updateTrendingTopics(keywordAnalysis.topWords, keywordAnalysis.topicScores);
+    } catch (error) {
+      console.error('[NewsIngestion] updateTrendingTopics failed (non-fatal):', error.message);
+    }
 
     return {
       success: true,
@@ -1121,6 +1148,218 @@ class NewsIngestionService {
   // ============================================
   // DATABASE OPERATIONS
   // ============================================
+
+  /**
+   * Bulk-upsert fetched RSS news items into the news_item table.
+   *
+   * Uses a single batched multi-row INSERT per chunk (via unnest) with
+   * ON CONFLICT (guid) DO UPDATE to refresh mutable fields. This avoids a
+   * per-row round-trip for the ~3,300 items fetched each run.
+   *
+   * Items are deduplicated by guid in-memory first (a guid can legitimately
+   * appear in more than one feed, e.g. overlapping Google News searches),
+   * because Postgres rejects an INSERT whose VALUES touch the same conflict
+   * key twice ("ON CONFLICT DO UPDATE command cannot affect row a second time").
+   *
+   * @param {Array} items - News items from fetchAllFeeds()
+   * @returns {Promise<Map<string, number>>} Map of guid -> item_id for all upserted rows
+   */
+  async storeNewsItems(items) {
+    const guidToItemId = new Map();
+    if (!items || items.length === 0) return guidToItemId;
+
+    // Deduplicate by guid, keeping the last occurrence. Skip rows without a
+    // usable guid (guid is NOT NULL in the schema; fetchFeed falls back to
+    // link/title, but guard anyway).
+    const byGuid = new Map();
+    for (const item of items) {
+      const guid = item.guid || item.link || item.title;
+      if (!guid) continue;
+      byGuid.set(String(guid).slice(0, 500), item);
+    }
+
+    const deduped = Array.from(byGuid.entries());
+    if (deduped.length === 0) return guidToItemId;
+
+    const BATCH_SIZE = 500;
+    let upserted = 0;
+
+    for (let i = 0; i < deduped.length; i += BATCH_SIZE) {
+      const batch = deduped.slice(i, i + BATCH_SIZE);
+
+      const guids = [];
+      const titles = [];
+      const links = [];
+      const descriptions = [];
+      const sources = [];
+      const pubDates = [];
+
+      for (const [guid, item] of batch) {
+        guids.push(guid);
+        titles.push(item.title || '');
+        links.push(item.link || null);
+        descriptions.push(item.description || null);
+        // source_name is varchar(100) NOT NULL in the schema
+        sources.push((item.source || 'unknown').slice(0, 100));
+        pubDates.push(item.pubDate instanceof Date ? item.pubDate : (item.pubDate ? new Date(item.pubDate) : null));
+      }
+
+      const query = `
+        INSERT INTO news_item (guid, title, link, description, source_name, pub_date)
+        SELECT * FROM unnest(
+          $1::varchar[], $2::text[], $3::text[], $4::text[], $5::varchar[], $6::timestamptz[]
+        )
+        ON CONFLICT (guid) DO UPDATE SET
+          title = EXCLUDED.title,
+          link = EXCLUDED.link,
+          description = EXCLUDED.description,
+          pub_date = EXCLUDED.pub_date
+        RETURNING item_id, guid
+      `;
+
+      try {
+        const result = await this.pool.query(query, [
+          guids, titles, links, descriptions, sources, pubDates
+        ]);
+        for (const row of result.rows) {
+          guidToItemId.set(row.guid, row.item_id);
+        }
+        upserted += result.rowCount || 0;
+      } catch (error) {
+        console.error('[NewsIngestion] Error upserting news_item batch:', error.message);
+      }
+    }
+
+    console.log(`[NewsIngestion] Upserted ${upserted} news_item rows (${deduped.length} unique guids from ${items.length} fetched)`);
+    return guidToItemId;
+  }
+
+  /**
+   * Persist bill <-> news links into bill_news_mention.
+   *
+   * Reuses the bill matches already computed by lookupMentionedBills(): each
+   * matched bill carries the news items that mentioned it (now including guid),
+   * which we resolve to news_item.item_id via the guid->item_id map produced by
+   * storeNewsItems(). Inserts (bill_id, news_item_id, context) in batched
+   * multi-row INSERTs with ON CONFLICT (bill_id, news_item_id) DO NOTHING.
+   *
+   * @param {Array} mentionedBills - Output of lookupMentionedBills()
+   * @param {Map<string, number>} guidToItemId - guid -> item_id from storeNewsItems()
+   * @returns {Promise<number>} Number of mention links inserted (new rows)
+   */
+  async storeBillNewsMentions(mentionedBills, guidToItemId) {
+    if (!mentionedBills || mentionedBills.length === 0) return 0;
+    if (!guidToItemId || guidToItemId.size === 0) return 0;
+
+    // Build deduplicated (bill_id, news_item_id) -> context rows.
+    const linkMap = new Map();
+    for (const bill of mentionedBills) {
+      if (!bill.bill_id || !Array.isArray(bill.newsItems)) continue;
+      for (const ni of bill.newsItems) {
+        const itemId = ni.guid ? guidToItemId.get(String(ni.guid).slice(0, 500)) : undefined;
+        if (!itemId) continue; // guid wasn't persisted (e.g. empty guid) — skip
+        const key = `${bill.bill_id}::${itemId}`;
+        if (!linkMap.has(key)) {
+          linkMap.set(key, { billId: bill.bill_id, itemId, context: ni.context || null });
+        }
+      }
+    }
+
+    const links = Array.from(linkMap.values());
+    if (links.length === 0) return 0;
+
+    const BATCH_SIZE = 500;
+    let inserted = 0;
+
+    for (let i = 0; i < links.length; i += BATCH_SIZE) {
+      const batch = links.slice(i, i + BATCH_SIZE);
+
+      const billIds = batch.map(l => l.billId);
+      const itemIds = batch.map(l => l.itemId);
+      const contexts = batch.map(l => l.context);
+
+      const query = `
+        INSERT INTO bill_news_mention (bill_id, news_item_id, context)
+        SELECT * FROM unnest($1::varchar[], $2::int[], $3::text[])
+        ON CONFLICT (bill_id, news_item_id) DO NOTHING
+        RETURNING mention_id
+      `;
+
+      try {
+        const result = await this.pool.query(query, [billIds, itemIds, contexts]);
+        inserted += result.rowCount || 0;
+      } catch (error) {
+        console.error('[NewsIngestion] Error inserting bill_news_mention batch:', error.message);
+      }
+    }
+
+    console.log(`[NewsIngestion] Inserted ${inserted} bill_news_mention links (${links.length} candidate pairs)`);
+    return inserted;
+  }
+
+  /**
+   * Update the trending_topic table with current keyword data.
+   *
+   * Ported from the standalone news-ingestion-job.js so trending topics refresh
+   * on every live run (the in-process scheduler path previously never called it,
+   * leaving the table stale). Upserts the top keywords from the current analysis
+   * with their weight/source_count and advances last_seen to NOW().
+   *
+   * @param {Array} keywords - topWords from extractKeywords() (term/weight/sourceCount)
+   * @param {Object} topicScores - topicScores from extractKeywords() (category -> {matchedTerms})
+   * @returns {Promise<number>} Number of topics upserted
+   */
+  async updateTrendingTopics(keywords, topicScores) {
+    if (!keywords || keywords.length === 0) return 0;
+
+    const client = await this.pool.connect();
+    let upserted = 0;
+
+    try {
+      await client.query('BEGIN');
+
+      // Deactivate topics that haven't been seen in the last 24h.
+      await client.query(`
+        UPDATE trending_topic
+        SET is_active = false
+        WHERE last_seen < NOW() - INTERVAL '24 hours'
+      `);
+
+      for (const keyword of keywords.slice(0, 50)) {
+        // Determine category from topicScores by matched term membership.
+        let category = null;
+        for (const [cat, data] of Object.entries(topicScores || {})) {
+          if (data.matchedTerms && data.matchedTerms.includes(keyword.term)) {
+            category = cat;
+            break;
+          }
+        }
+
+        await client.query(`
+          INSERT INTO trending_topic (topic_name, category, score, source_count, last_seen, is_active)
+          VALUES ($1, $2, $3, $4, NOW(), true)
+          ON CONFLICT (topic_name)
+          DO UPDATE SET
+            score = EXCLUDED.score,
+            source_count = EXCLUDED.source_count,
+            last_seen = NOW(),
+            is_active = true,
+            category = COALESCE(EXCLUDED.category, trending_topic.category)
+        `, [keyword.term.slice(0, 100), category, keyword.weight, keyword.sourceCount]);
+        upserted++;
+      }
+
+      await client.query('COMMIT');
+      console.log(`[NewsIngestion] Updated trending_topic table (${upserted} topics upserted)`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('[NewsIngestion] Error updating trending topics:', error.message);
+    } finally {
+      client.release();
+    }
+
+    return upserted;
+  }
 
   /**
    * Store news analysis results in database

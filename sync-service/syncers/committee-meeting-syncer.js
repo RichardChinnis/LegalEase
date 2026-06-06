@@ -708,7 +708,9 @@ class CommitteeMeetingSyncer {
       // Calculate from date
       const fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - days);
-      const fromDateString = fromDate.toISOString().split('T')[0];
+      // Congress.gov committee-meeting endpoint requires full ISO-8601
+      // (YYYY-MM-DDThh:mm:ssZ); a date-only value is rejected with HTTP 400.
+      const fromDateString = fromDate.toISOString().split('.')[0] + 'Z';
 
       logger.info('Starting recent committee meetings sync', {
         congress: currentCongress,
@@ -746,8 +748,9 @@ class CommitteeMeetingSyncer {
 
       results.combinedStats = { ...this.stats };
 
-      // Update sync status
-      await this.updateSyncStatus('success', {
+      // Update sync status — record success only if both chambers actually succeeded,
+      // so a failed run can never be logged as a successful 0-record sync.
+      await this.updateSyncStatus(results.success ? 'success' : 'failure', {
         congress: currentCongress,
         days,
         fromDate: fromDateString,
