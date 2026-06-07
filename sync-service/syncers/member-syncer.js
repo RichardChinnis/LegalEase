@@ -86,19 +86,35 @@ class MemberSyncer {
       return [];
     }
     
-    return previousNames.map(name => ({
-      member_bioguide_id: bioguideId,
-      first_name: name.firstName || null,
-      last_name: name.lastName || null,
-      middle_name: name.middleName || null,
-      suffix_name: name.suffixName || null,
-      nickname: name.nickname || null,
-      direct_order_name: name.directOrderName || null,
-      inverted_order_name: name.invertedOrderName || null,
-      start_date: name.startDate ? new Date(name.startDate) : null,
-      end_date: name.endDate ? new Date(name.endDate) : null,
-      name_type: 'legal'
-    }));
+    return previousNames
+      .map(name => ({
+        member_bioguide_id: bioguideId,
+        first_name: name.firstName || null,
+        last_name: name.lastName || null,
+        middle_name: name.middleName || null,
+        suffix_name: name.suffixName || null,
+        nickname: name.nickname || null,
+        direct_order_name: name.directOrderName || null,
+        inverted_order_name: name.invertedOrderName || null,
+        start_date: name.startDate ? new Date(name.startDate) : null,
+        end_date: name.endDate ? new Date(name.endDate) : null,
+        name_type: 'legal'
+      }))
+      // Congress.gov occasionally returns previous-name rows with end_date before
+      // start_date (e.g. special-election members' revision artifacts). Such a range
+      // is invalid and is rejected by the check_previous_names_dates constraint, which
+      // would otherwise fail the entire member sync — so drop these rows instead.
+      .filter(row => {
+        if (row.start_date && row.end_date && row.end_date < row.start_date) {
+          logger.warn('Dropping previous-name row: end_date precedes start_date', {
+            bioguideId,
+            startDate: row.start_date.toISOString(),
+            endDate: row.end_date.toISOString()
+          });
+          return false;
+        }
+        return true;
+      });
   }
 
   // Calculate and format legislation statistics
@@ -602,25 +618,25 @@ class MemberSyncer {
       
       // Sync address information if available
       if (member.addressInformation) {
-        await this.syncMemberAddress(bioguideId, member.addressInformation);
+        await this.syncMemberSubEntity(bioguideId, 'address', () => this.syncMemberAddress(bioguideId, member.addressInformation));
       }
       
       // Sync party history if available
       if (member.partyHistory && Array.isArray(member.partyHistory)) {
-        await this.syncMemberPartyHistory(bioguideId, member.partyHistory);
+        await this.syncMemberSubEntity(bioguideId, 'partyHistory', () => this.syncMemberPartyHistory(bioguideId, member.partyHistory));
       }
       
       // Sync previous names if available
       if (member.previousNames && Array.isArray(member.previousNames)) {
-        await this.syncMemberPreviousNames(bioguideId, member.previousNames);
+        await this.syncMemberSubEntity(bioguideId, 'previousNames', () => this.syncMemberPreviousNames(bioguideId, member.previousNames));
       }
       
       // Sync legislation statistics
-      await this.syncMemberLegislationStats(bioguideId, member);
+      await this.syncMemberSubEntity(bioguideId, 'legislationStats', () => this.syncMemberLegislationStats(bioguideId, member));
       
       // Sync terms of service if available
       if (member.terms && Array.isArray(member.terms)) {
-        await this.syncMemberTerms(bioguideId, member.terms, member.partyHistory);
+        await this.syncMemberSubEntity(bioguideId, 'terms', () => this.syncMemberTerms(bioguideId, member.terms, member.partyHistory));
       }
       
       return result.rows[0];
@@ -630,6 +646,22 @@ class MemberSyncer {
         error: error.message 
       });
       throw error;
+    }
+  }
+
+  // Run an auxiliary member sub-sync in isolation: its failure is logged and
+  // swallowed so one bad sub-record (e.g. malformed source data) can't fail the
+  // whole member or block the sub-syncs that follow it. The core member record is
+  // upserted outside this helper, so a genuine member failure still propagates.
+  async syncMemberSubEntity(bioguideId, label, fn) {
+    try {
+      await fn();
+    } catch (error) {
+      logger.warn('Member sub-entity sync failed (continuing)', {
+        bioguideId,
+        subEntity: label,
+        error: error.message
+      });
     }
   }
 
@@ -801,35 +833,38 @@ class MemberSyncer {
       return;
     }
     
-    // First, clear existing previous names for this member
-    await this.db.query(
-      'DELETE FROM member_previous_names WHERE member_bioguide_id = $1',
-      [bioguideId]
-    );
+    // Replace the member's previous names atomically: the DELETE and re-INSERTs run
+    // in one transaction, so a mid-loop failure can never leave a partial set behind.
+    await this.db.transaction(async (client) => {
+      await client.query(
+        'DELETE FROM member_previous_names WHERE member_bioguide_id = $1',
+        [bioguideId]
+      );
     
-    // Insert new previous names records
-    for (const name of transformedNames) {
-      const query = `
-        INSERT INTO member_previous_names (
-          member_bioguide_id, first_name, last_name, middle_name, suffix_name,
-          nickname, direct_order_name, inverted_order_name, start_date, end_date, name_type
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING previous_name_id`;
+      // Insert new previous names records
+      for (const name of transformedNames) {
+        const query = `
+          INSERT INTO member_previous_names (
+            member_bioguide_id, first_name, last_name, middle_name, suffix_name,
+            nickname, direct_order_name, inverted_order_name, start_date, end_date, name_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          RETURNING previous_name_id`;
       
-      await this.db.query(query, [
-        name.member_bioguide_id,
-        name.first_name,
-        name.last_name,
-        name.middle_name,
-        name.suffix_name,
-        name.nickname,
-        name.direct_order_name,
-        name.inverted_order_name,
-        name.start_date,
-        name.end_date,
-        name.name_type
-      ]);
-    }
+        await client.query(query, [
+          name.member_bioguide_id,
+          name.first_name,
+          name.last_name,
+          name.middle_name,
+          name.suffix_name,
+          name.nickname,
+          name.direct_order_name,
+          name.inverted_order_name,
+          name.start_date,
+          name.end_date,
+          name.name_type
+        ]);
+      }
+    });
     
     logger.debug('Synced member previous names', { bioguideId, count: transformedNames.length });
   }
