@@ -1,5 +1,16 @@
 const winston = require('winston');
 const path = require('path');
+const fs = require('fs');
+
+// Log directory. LOG_DIR redirects every transport below; with it unset this
+// resolves to __dirname/logs exactly as before, so production is unaffected.
+// Relative values resolve against this directory, so the value reads the same
+// wherever it is set. Created up front because winston's File transports open
+// their file as soon as they are constructed, not on first write.
+const logsDir = path.resolve(__dirname, process.env.LOG_DIR || 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 // Define log levels
 const levels = {
@@ -29,6 +40,50 @@ const format = winston.format.combine(
   winston.format.printf((info) => `${info.timestamp} ${info.level}: ${info.message}`),
 );
 
+// Rotation bounds, overridable per environment. winston compares
+// `size >= maxsize` numerically, so these must be plain byte counts: a
+// human-readable string such as '20m' coerces to NaN and silently disables
+// rotation -- and parsing it leniently is worse still, since parseInt('20m')
+// is 20 and would cap the file at 20 bytes, rotating on every line. Anything
+// that is not a plain positive integer is rejected out loud.
+// `tailable` keeps the live file at its original name (combined.log) and rolls
+// history into combined1.log, combined2.log, ... so anything tailing or
+// grepping a fixed path keeps working.
+const DEFAULT_MAX_SIZE_BYTES = 20 * 1024 * 1024;
+const DEFAULT_MAX_FILES = 5;
+// chat/exception/rejection logs are orders of magnitude smaller than the
+// request logs, so they get a tighter budget to keep the service ceiling down.
+const DEFAULT_AUX_MAX_SIZE_BYTES = 5 * 1024 * 1024;
+const DEFAULT_AUX_MAX_FILES = 3;
+
+const positiveInt = (value, fallback, label) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0 || String(value).trim() !== String(parsed)) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[logger] ${label} must be a positive integer, got ${JSON.stringify(value)}; ` +
+      `falling back to ${fallback}. Log rotation would otherwise be misconfigured.`
+    );
+    return fallback;
+  }
+  return parsed;
+};
+
+const rotation = {
+  maxsize: positiveInt(process.env.LOG_MAX_SIZE_BYTES, DEFAULT_MAX_SIZE_BYTES, 'LOG_MAX_SIZE_BYTES'),
+  maxFiles: positiveInt(process.env.LOG_MAX_FILES, DEFAULT_MAX_FILES, 'LOG_MAX_FILES'),
+  tailable: true,
+};
+
+const auxRotation = {
+  maxsize: positiveInt(process.env.LOG_AUX_MAX_SIZE_BYTES, DEFAULT_AUX_MAX_SIZE_BYTES, 'LOG_AUX_MAX_SIZE_BYTES'),
+  maxFiles: positiveInt(process.env.LOG_AUX_MAX_FILES, DEFAULT_AUX_MAX_FILES, 'LOG_AUX_MAX_FILES'),
+  tailable: true,
+};
+
 // Define transports
 const transports = [
   // Console transport
@@ -37,20 +92,22 @@ const transports = [
   }),
   // File transport for errors
   new winston.transports.File({
-    filename: path.join(__dirname, 'logs', 'error.log'),
+    filename: path.join(logsDir, 'error.log'),
     level: 'error',
     format: winston.format.combine(
       winston.format.timestamp(),
       winston.format.json(),
     ),
+    ...rotation,
   }),
   // File transport for all logs
   new winston.transports.File({
-    filename: path.join(__dirname, 'logs', 'combined.log'),
+    filename: path.join(logsDir, 'combined.log'),
     format: winston.format.combine(
       winston.format.timestamp(),
       winston.format.json(),
     ),
+    ...rotation,
   }),
 ];
 
@@ -67,13 +124,15 @@ const logger = winston.createLogger({
   // Handle uncaught exceptions
   exceptionHandlers: [
     new winston.transports.File({
-      filename: path.join(__dirname, 'logs', 'exceptions.log'),
+      filename: path.join(logsDir, 'exceptions.log'),
+      ...auxRotation,
     }),
   ],
   // Handle unhandled promise rejections
   rejectionHandlers: [
     new winston.transports.File({
-      filename: path.join(__dirname, 'logs', 'rejections.log'),
+      filename: path.join(logsDir, 'rejections.log'),
+      ...auxRotation,
     }),
   ],
 });
@@ -88,20 +147,14 @@ const chatLogger = winston.createLogger({
     ),
     transports: [
         new winston.transports.File({
-            filename: path.join(__dirname, 'logs', 'chat.log'),
+            filename: path.join(logsDir, 'chat.log'),
+            ...auxRotation,
         }),
         new winston.transports.Console({
             format: format,
         })
     ]
 });
-
-// Create logs directory if it doesn't exist
-const fs = require('fs');
-const logsDir = path.join(__dirname, 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
 
 // HTTP request logging middleware
 const httpLogger = (req, res, next) => {

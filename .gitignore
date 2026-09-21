@@ -147,3 +147,6 @@ CLAUDE.local.md
 # Server-host-specific deploy configs (committed templates: *.example)
 /congress-api.conf
 /backend/congress-api-backend.service
+
+# Rendered logrotate config (generated from the .example by scripts/apply-health-fixes.sh)
+/deploy/logrotate/congress-api

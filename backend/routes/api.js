@@ -5,7 +5,7 @@ const { PDFParse } = require('pdf-parse');
 const { logger } = require('../logger');
 const { createMiddlewareChain, validateBioguideIdSchema, createValidationMiddleware, quotaTracker } = require('../middleware');
 const { asyncHandler } = require('../utils/error-handler');
-const { BadRequestError } = require('../utils/errors');
+const { BadRequestError, NotFoundError } = require('../utils/errors');
 const { SearchService } = require('../services/search-service');
 const { validateSearchQuery } = require('../middleware/search-validation');
 const { SpotlightService } = require('../services/spotlight-service');
@@ -62,6 +62,70 @@ function validateCongressGovUrl(url) {
   }
 
   return parsedUrl.href;
+}
+
+// Congress.gov API v3 resources the dynamic proxy at the bottom of this file is allowed
+// to forward, mapped to the number of path segments each one exposes below its name.
+// Derived from, in order of how directly the codebase vouches for each entry:
+//   - the explicit route handlers in this file: bill, congress, member, committee,
+//     committee-report
+//   - the collections declared in schemas/validation-schemas.js: amendment, nomination,
+//     treaty, congressional-record, daily-congressional-record, bound-congressional-record,
+//     house-communication, senate-communication, house-requirement, senate-requirement
+//   - the collections the sync service reads upstream: committee-meeting, hearing
+//   - the remaining v3 collections this app models locally or may yet serve: summaries,
+//     law, committee-print, house-vote
+//
+// Every forwarded request spends Congress.gov quota on a key that cannot be rotated, so an
+// unlisted path must never reach the upstream API. A Map rather than an object literal so
+// inherited keys such as "constructor" or "toString" cannot be mistaken for an allowed one.
+const PROXY_ALLOWED_RESOURCES = new Map([
+  ['amendment', 4],                   // /amendment/{congress}/{type}/{number}/{subresource}
+  ['bill', 4],                        // /bill/{congress}/{type}/{number}/{subresource}
+  ['bound-congressional-record', 3],  // /bound-congressional-record/{year}/{month}/{day}
+  ['committee', 3],                   // /committee/{chamber}/{committeeCode}/{subresource}
+  ['committee-meeting', 3],           // /committee-meeting/{congress}/{chamber}/{eventId}
+  ['committee-print', 4],             // /committee-print/{congress}/{chamber}/{jacketNumber}/text
+  ['committee-report', 4],            // /committee-report/{congress}/{reportType}/{reportNumber}/text
+  ['congress', 1],                    // /congress/{congress} and /congress/current
+  ['congressional-record', 0],        // /congressional-record (filtered by query parameters)
+  ['daily-congressional-record', 3],  // /daily-congressional-record/{volume}/{issue}/articles
+  ['hearing', 3],                     // /hearing/{congress}/{chamber}/{jacketNumber}
+  ['house-communication', 3],         // /house-communication/{congress}/{type}/{number}
+  ['house-requirement', 2],           // /house-requirement/{number}/matching-communications
+  ['house-vote', 4],                  // /house-vote/{congress}/{session}/{voteNumber}/members
+  ['law', 3],                         // /law/{congress}/{lawType}/{lawNumber}
+  ['member', 4],                      // /member/congress/{congress}/{stateCode}/{district}
+  ['nomination', 3],                  // /nomination/{congress}/{number}/{subresource}
+  ['senate-communication', 3],        // /senate-communication/{congress}/{type}/{number}
+  ['senate-requirement', 2],          // /senate-requirement/{number}/matching-communications
+  ['summaries', 2],                   // /summaries/{congress}/{type}
+  ['treaty', 4],                      // /treaty/{congress}/{number}/{suffix}/actions
+]);
+
+// Shape of a single Congress.gov path segment. Excluding dots and encoded separators keeps
+// dotfile probes (/summaries/.env) and traversal attempts out of the upstream URL.
+const PROXY_PATH_SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Determines whether an unmatched /api path is a Congress.gov resource this app proxies.
+ * Everything else is answered locally so that scanner traffic cannot spend upstream quota.
+ * @param {string} path - The router-relative request path (e.g. '/bill/118/hr/1/text')
+ * @returns {boolean} True if the path may be forwarded to Congress.gov
+ */
+function isProxyableCongressPath(path) {
+  const segments = path.split('/').filter(Boolean);
+
+  if (segments.length === 0) {
+    return false;
+  }
+
+  const maxSubPathDepth = PROXY_ALLOWED_RESOURCES.get(segments[0]);
+  if (maxSubPathDepth === undefined || segments.length - 1 > maxSubPathDepth) {
+    return false;
+  }
+
+  return segments.every((segment) => PROXY_PATH_SEGMENT.test(segment));
 }
 
 function createAPIRoutes(congressAPIClient, db) {
@@ -5040,6 +5104,12 @@ function createAPIRoutes(congressAPIClient, db) {
       return next();
     }
     
+    // Reject anything outside the Congress.gov resources this proxy serves. Without this
+    // gate every unmatched /api path became an authenticated upstream request.
+    if (!isProxyableCongressPath(req.path)) {
+      return next(new NotFoundError(`No Congress API resource at ${req.baseUrl}${req.path}`));
+    }
+
     // Apply schema validation and middleware chain for other endpoints
     createValidationMiddleware(req.path)(req, res, (err) => {
       if (err) return next(err);

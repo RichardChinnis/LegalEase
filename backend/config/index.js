@@ -12,6 +12,9 @@ module.exports = {
   // Server configuration
   server: {
     port: process.env.PORT || 3000,
+    // Apache proxies to http://localhost:3000, so loopback covers every real consumer.
+    // Set HOST=0.0.0.0 to publish on all interfaces again.
+    host: process.env.HOST || '127.0.0.1',
     environment: process.env.NODE_ENV || 'development',
   },
 

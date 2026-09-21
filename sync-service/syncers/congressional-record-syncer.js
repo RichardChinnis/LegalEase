@@ -5,6 +5,43 @@ const config = require('../config');
 const CongressionalRecordParser = require('../../backend/utils/congressional-record-parser');
 
 /**
+ * Normalize a page number that maps to a NOT NULL column.
+ *
+ * Congress.gov intermittently omits startPage on CR sections and articles, but
+ * start_page is `character varying(20) NOT NULL` in both
+ * congressional_record_section and congressional_record_article. Returns the
+ * trimmed page, or null when there is nothing usable, so callers can skip the
+ * row instead of letting the insert fail and silently lose it.
+ *
+ * @param {*} value - Raw page value from the API
+ * @returns {string|null} Trimmed page number, or null if missing/blank
+ */
+function normalizeRequiredPage(value) {
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+/**
+ * First usable page among `articles`, read via `pick`.
+ *
+ * Page numbers have to come from the API data -- there is no honest default for
+ * a page the API didn't report -- so this returns null when no article supplies
+ * one, and the caller skips the row rather than inventing a number for it.
+ *
+ * @param {Array} articles - Articles to scan, in order
+ * @param {Function} pick - Reads the candidate page off one article
+ * @returns {string|null} First usable page, or null if none
+ */
+function firstUsablePage(articles, pick) {
+  for (const article of articles) {
+    const page = normalizeRequiredPage(pick(article));
+    if (page !== null) return page;
+  }
+  return null;
+}
+
+/**
  * Congressional Record Syncer
  * 
  * Synchronizes Congressional Record data from the Congress API including:
@@ -18,11 +55,19 @@ class CongressionalRecordSyncer {
     this.client = new CongressClient();
     this.db = new DatabaseService();
     this.parser = new CongressionalRecordParser();
+    this.resetStats();
+  }
+
+  /**
+   * Zero the per-run counters. Called by the constructor and at the start of
+   * each sync so a second run doesn't report the first run's totals.
+   */
+  resetStats() {
     this.stats = {
       volumes: { inserted: 0, updated: 0, failed: 0 },
       issues: { inserted: 0, updated: 0, failed: 0 },
-      sections: { inserted: 0, updated: 0, failed: 0 },
-      articles: { inserted: 0, updated: 0, failed: 0 },
+      sections: { inserted: 0, updated: 0, failed: 0, skipped: 0 },
+      articles: { inserted: 0, updated: 0, failed: 0, skipped: 0 },
       references: { inserted: 0, updated: 0, matched: 0, failed: 0 },
       totalProcessed: 0,
       errors: []
@@ -94,7 +139,7 @@ class CongressionalRecordSyncer {
     return {
       issue_id: issueId,
       name: sectionName,
-      start_page: apiSection.startPage,
+      start_page: normalizeRequiredPage(apiSection.startPage),
       end_page: apiSection.endPage || null,
       pdf_url: apiSection.pdfUrl,
       text_url: apiSection.textUrl,
@@ -140,7 +185,7 @@ class CongressionalRecordSyncer {
     return {
       section_id: sectionId,
       title: apiArticle.title || 'Untitled',
-      start_page: apiArticle.startPage,
+      start_page: normalizeRequiredPage(apiArticle.startPage),
       end_page: apiArticle.endPage || null,
       pdf_url: pdfUrl,
       text_url: textUrl,
@@ -237,6 +282,17 @@ class CongressionalRecordSyncer {
       for (const apiSection of sections) {
         try {
           const sectionData = this.transformSectionData(apiSection, issueResult.issue_id);
+
+          if (sectionData.start_page === null) {
+            this.stats.sections.skipped++;
+            logger.warn('Skipping CR section with no start page', {
+              volumeNumber, issueNumber,
+              issueId: issueResult.issue_id,
+              section: apiSection.name
+            });
+            continue;
+          }
+
           const sectionResult = await this.upsertSection(sectionData);
           
           if (sectionResult.inserted) this.stats.sections.inserted++;
@@ -301,7 +357,7 @@ class CongressionalRecordSyncer {
       logger.info('CR issue sync completed', {
         volumeNumber, issueNumber,
         stats: {
-          sections: sectionResults.length,
+          sectionsProcessed: sectionResults.length,
           volumes: this.stats.volumes,
           issues: this.stats.issues,
           sections: this.stats.sections,
@@ -359,6 +415,16 @@ class CongressionalRecordSyncer {
         }
 
         const articleData = this.transformArticleData(apiArticle, sectionId);
+
+        if (articleData.start_page === null) {
+          this.stats.articles.skipped++;
+          logger.warn('Skipping CR article with no start page', {
+            sectionId,
+            article: apiArticle.title
+          });
+          continue;
+        }
+
         const result = await this.upsertArticle(articleData);
         
         if (result.inserted) this.stats.articles.inserted++;
@@ -535,16 +601,7 @@ class CongressionalRecordSyncer {
       syncContent = false
     } = options;
 
-    // Reset stats at the start of sync
-    this.stats = {
-      volumes: { inserted: 0, updated: 0, failed: 0 },
-      issues: { inserted: 0, updated: 0, failed: 0 },
-      sections: { inserted: 0, updated: 0, failed: 0 },
-      articles: { inserted: 0, updated: 0, failed: 0 },
-      references: { inserted: 0, updated: 0, matched: 0, failed: 0 },
-      totalProcessed: 0,
-      errors: []
-    };
+    this.resetStats();
 
     const startTime = Date.now();
     logger.info('Starting recent CR sync', { days, syncArticles, syncContent });
@@ -652,16 +709,7 @@ class CongressionalRecordSyncer {
    * @returns {Object} Sync results
    */
   async syncUnresolvedReferences() {
-    // Reset stats at the start of sync
-    this.stats = {
-      volumes: { inserted: 0, updated: 0, failed: 0 },
-      issues: { inserted: 0, updated: 0, failed: 0 },
-      sections: { inserted: 0, updated: 0, failed: 0 },
-      articles: { inserted: 0, updated: 0, failed: 0 },
-      references: { inserted: 0, updated: 0, matched: 0, failed: 0 },
-      totalProcessed: 0,
-      errors: []
-    };
+    this.resetStats();
 
     logger.info('Starting unresolved CR references sync');
 
@@ -756,3 +804,8 @@ class CongressionalRecordSyncer {
 }
 
 module.exports = CongressionalRecordSyncer;
+// Shared with daily-congressional-record-sync.js and backfill-missing-cr-issues.js,
+// which build their own rows for the same tables and need the same definition of
+// an unusable page number. One copy, so the three paths cannot drift apart again.
+module.exports.normalizeRequiredPage = normalizeRequiredPage;
+module.exports.firstUsablePage = firstUsablePage;

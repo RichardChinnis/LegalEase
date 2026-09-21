@@ -37,6 +37,7 @@ class BillSyncer {
       failed: 0,
       skipped: 0,
       apiCallsSaved: 0,
+      cosponsorsFailed: 0,
       errors: []
     };
   }
@@ -356,6 +357,15 @@ class BillSyncer {
         is_by_request: sponsor.isByRequest || false
       };
 
+      // Same race as cosponsors, and it lands on the sponsor of a new member's first
+      // bill: guarantee the FK target exists before writing bill_sponsor.
+      await this.db.ensureMemberStub({
+        bioguide_id: sponsor.bioguideId,
+        first_name: sponsor.firstName,
+        middle_name: sponsor.middleName,
+        last_name: sponsor.lastName
+      });
+
       await this.db.upsertBillSponsor(sponsorData);
     } catch (error) {
       logger.error('Failed to sync bill sponsor', {
@@ -365,14 +375,21 @@ class BillSyncer {
     }
   }
 
-  // Sync cosponsors for a specific bill
+  // Sync cosponsors for a specific bill.
+  // Returns { synced, failed } so a partial write is visible to the caller: one bad
+  // cosponsor used to throw out of the loop and freeze the rest of the bill's list.
   async syncBillCosponsors(billId, cosponsorsData) {
-    try {
-      if (!cosponsorsData?.cosponsors || !Array.isArray(cosponsorsData.cosponsors)) {
-        return;
-      }
+    if (!cosponsorsData?.cosponsors || !Array.isArray(cosponsorsData.cosponsors)) {
+      return { synced: 0, failed: 0 };
+    }
 
-      for (const cosponsor of cosponsorsData.cosponsors) {
+    let synced = 0;
+    let failed = 0;
+
+    for (const cosponsor of cosponsorsData.cosponsors) {
+      // Isolate each cosponsor, transform included: a cosponsor that cannot be
+      // transformed or written must not cost the bill its remaining cosponsors.
+      try {
         const cosponsorData = {
           bill_id: billId,
           bioguide_id: cosponsor.bioguideId,
@@ -380,23 +397,46 @@ class BillSyncer {
           first_name: cosponsor.firstName,
           middle_name: cosponsor.middleName,
           last_name: cosponsor.lastName,
-          suffix: cosponsor.suffix,
           party: cosponsor.party,
           state: cosponsor.state,
           district: cosponsor.district,
           sponsorship_date: parseDateOnly(cosponsor.sponsorshipDate),
-          withdrawal_date: parseDateOnly(cosponsor.sponsorshipWithdrawnDate),
-          url: cosponsor.url
+          sponsorship_withdrawn_date: parseDateOnly(cosponsor.sponsorshipWithdrawnDate),
+          is_original_cosponsor: cosponsor.isOriginalCosponsor
         };
 
+        // Congress.gov lists a newly seated member as a cosponsor days before the
+        // monthly member sync inserts them, so guarantee the FK target exists first.
+        await this.db.ensureMemberStub({
+          bioguide_id: cosponsor.bioguideId,
+          first_name: cosponsor.firstName,
+          middle_name: cosponsor.middleName,
+          last_name: cosponsor.lastName
+        });
+
         await this.db.upsertBillCosponsor(cosponsorData);
+        synced++;
+      } catch (error) {
+        failed++;
+        this.stats.cosponsorsFailed = (this.stats.cosponsorsFailed || 0) + 1;
+        this.stats.errors.push({
+          bill: billId,
+          bioguide_id: cosponsor.bioguideId,
+          error: error.message
+        });
+        logger.error('Failed to sync bill cosponsor', {
+          billId,
+          bioguideId: cosponsor.bioguideId,
+          error: error.message
+        });
       }
-    } catch (error) {
-      logger.error('Failed to sync bill cosponsors', {
-        billId,
-        error: error.message
-      });
     }
+
+    if (failed > 0) {
+      logger.warn('Bill cosponsor sync completed with failures', { billId, synced, failed });
+    }
+
+    return { synced, failed };
   }
 
   // Sync related bills for a specific bill
@@ -718,6 +758,7 @@ class BillSyncer {
       failed: 0,
       skipped: 0,
       apiCallsSaved: 0,
+      cosponsorsFailed: 0,
       errors: []
     };
 
@@ -862,6 +903,7 @@ class BillSyncer {
       failed: 0,
       skipped: 0,
       apiCallsSaved: 0,
+      cosponsorsFailed: 0,
       errors: []
     };
 

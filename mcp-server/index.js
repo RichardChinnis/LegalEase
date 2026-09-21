@@ -17,20 +17,30 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import pg from 'pg';
+import pgPass from 'pgpass';
 
 const { Pool } = pg;
 
-if (!process.env.PGPASSWORD) {
-  console.error('FATAL: PGPASSWORD environment variable is required');
-  process.exit(1);
-}
-
-const pool = new Pool({
+const connection = {
   host: process.env.PGHOST || 'localhost',
   port: parseInt(process.env.PGPORT || '5432'),
   database: process.env.PGDATABASE || 'congress_api',
   user: process.env.PGUSER || 'congress_admin',
-  password: process.env.PGPASSWORD,
+};
+
+// Password comes from ~/.pgpass (mode 0600), never the environment, so it is
+// not exposed to child processes or a parent shell. pg's implicit .pgpass
+// fallback is deprecated in pg@9, so the lookup is done explicitly here.
+const pool = new Pool({
+  ...connection,
+  password: () =>
+    new Promise((resolve, reject) =>
+      pgPass(connection, (pass) =>
+        pass
+          ? resolve(pass)
+          : reject(new Error(`No ~/.pgpass entry for ${connection.user}@${connection.host}`))
+      )
+    ),
 });
 
 // Create MCP server

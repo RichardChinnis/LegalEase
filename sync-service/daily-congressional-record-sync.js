@@ -19,18 +19,30 @@
 const CongressionalRecordSyncer = require('./syncers/congressional-record-syncer');
 const logger = require('./lib/logger');
 
+const { normalizeRequiredPage, firstUsablePage } = CongressionalRecordSyncer;
+
 class DailyCongressionalRecordSync {
   constructor() {
     this.syncer = new CongressionalRecordSyncer();
     this.stats = {
       issuesProcessed: 0,
       totalArticlesStored: 0,
+      sectionsSkipped: 0,
+      sectionsUnmapped: 0,
+      articlesSkipped: 0,
       errors: []
     };
   }
 
   /**
-   * Map API section names to database enum values
+   * Map an API section name to a cr_section_type enum value.
+   *
+   * Returns null for anything not in the table. There is no safe default: a
+   * guess files the section's articles under the wrong chamber, which reads as
+   * perfectly ordinary data and quietly skews every chamber-filtered query.
+   *
+   * @param {string} apiSectionName - Section name as the API reports it
+   * @returns {string|null} Enum value, or null if unrecognized
    */
   mapSectionName(apiSectionName) {
     const sectionMap = {
@@ -40,7 +52,7 @@ class DailyCongressionalRecordSync {
       'Senate Section': 'Senate'
     };
     
-    return sectionMap[apiSectionName] || 'Senate'; // Default fallback
+    return sectionMap[apiSectionName] || null;
   }
 
   /**
@@ -177,6 +189,27 @@ class DailyCongressionalRecordSync {
 
   /**
    * Clean up existing data for an issue if it exists
+   *
+   * CAUTION -- known data-loss window, left deliberately unfixed.
+   *
+   * This DELETE runs outside any transaction, so it commits on its own, and it
+   * cascades: congressional_record_section and congressional_record_article are
+   * both ON DELETE CASCADE from the issue. The rewrite happens afterwards, in a
+   * separate statement, and has not fetched anything yet when the delete lands.
+   * So if processIssueArticles then throws (it rethrows on any API error --
+   * rate limit, 5xx, timeout), or the API returns no sections, the issue is left
+   * with its old rows gone and nothing written back until a later run succeeds.
+   *
+   * The cascade also reaches action_congressional_record_reference, whose
+   * issue_id, section_id and article_id are ON DELETE SET NULL. A resolved
+   * reference pointing at this issue would have issue_id and section_id both set
+   * to NULL, violating its logical_resolution CHECK and failing this DELETE --
+   * which the catch below swallows as a warning, after which the sync upserts on
+   * top of data it believes it deleted.
+   *
+   * A correct fix wraps delete-and-rebuild in one transaction, but that
+   * interacts with the cascade above in ways nobody has characterised yet, so it
+   * needs its own change rather than a patch on the way past.
    */
   async cleanupExistingData(volume, issue) {
     try {
@@ -252,17 +285,41 @@ class DailyCongressionalRecordSync {
 
         // Map section name to database enum
         const dbSectionName = this.mapSectionName(section.name);
+
+        if (dbSectionName === null) {
+          this.stats.sectionsUnmapped++;
+          logger.warn('⚠️ Skipping CR section with an unrecognized name', {
+            volume, issue,
+            section: section.name,
+            articlesDropped: sectionArticles.length
+          });
+          continue;
+        }
         
-        // Get start/end pages from articles
-        const startPage = sectionArticles[0]?.startPage || 'S1';
-        const endPage = sectionArticles[sectionArticles.length - 1]?.endPage || startPage;
+        // Pages come from the articles themselves. A section whose articles
+        // never report one has no start page we can stand behind, so it is
+        // skipped rather than stored under a made-up number.
+        const sectionStartPage = firstUsablePage(sectionArticles, a => a.startPage);
+
+        if (sectionStartPage === null) {
+          this.stats.sectionsSkipped++;
+          logger.warn('⚠️ Skipping CR section with no usable start page', {
+            volume, issue,
+            section: section.name,
+            articlesDropped: sectionArticles.length
+          });
+          continue;
+        }
+
+        // end_page is nullable, so an unknown end page stays unknown.
+        const sectionEndPage = firstUsablePage([...sectionArticles].reverse(), a => a.endPage);
 
         // Create section record
         const sectionData = {
           issue_id: issueResult.issue_id,
           name: dbSectionName,
-          start_page: startPage,
-          end_page: endPage,
+          start_page: sectionStartPage,
+          end_page: sectionEndPage,
           metadata: JSON.stringify({ 
             original_name: section.name,
             article_count: sectionArticles.length,
@@ -281,11 +338,23 @@ class DailyCongressionalRecordSync {
             const textUrls = article.text ? article.text.map(t => ({ type: t.type, url: t.url })) : [];
             const primaryUrl = textUrls.find(t => t.type === 'Formatted Text')?.url || textUrls[0]?.url || '';
             
+            const articleStartPage = normalizeRequiredPage(article.startPage);
+
+            if (articleStartPage === null) {
+              this.stats.articlesSkipped++;
+              logger.warn('⚠️ Skipping CR article with no start page', {
+                volume, issue,
+                section: section.name,
+                title: article.title
+              });
+              continue;
+            }
+
             const articleData = {
               section_id: sectionResult.section_id,
               title: article.title || `${section.name} Article ${articleIdx + 1}`,
-              start_page: article.startPage || startPage,
-              end_page: article.endPage || article.startPage || startPage,
+              start_page: articleStartPage,
+              end_page: normalizeRequiredPage(article.endPage),
               content_text: null, // Would need separate API calls
               word_count: 0,
               character_count: 0,
@@ -421,6 +490,14 @@ class DailyCongressionalRecordSync {
     logger.info('═'.repeat(50));
     logger.info(`🎯 Issues Processed: ${this.stats.issuesProcessed}`);
     logger.info(`📋 Total Articles Stored: ${this.stats.totalArticlesStored}`);
+
+    if (this.stats.sectionsSkipped > 0 || this.stats.articlesSkipped > 0) {
+      logger.info(`⏭️ Skipped, no usable start page: ${this.stats.sectionsSkipped} sections, ${this.stats.articlesSkipped} articles`);
+    }
+
+    if (this.stats.sectionsUnmapped > 0) {
+      logger.info(`⏭️ Skipped, unrecognized section name: ${this.stats.sectionsUnmapped} sections`);
+    }
     logger.info(`⏱️ Duration: ${minutes}m ${seconds}s`);
 
     if (this.stats.errors.length > 0) {

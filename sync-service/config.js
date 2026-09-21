@@ -114,8 +114,14 @@ module.exports = {
   logging: {
     level: process.env.LOG_LEVEL || 'info',
     dir: './logs',
-    maxFiles: 30,
-    maxSize: '20m'
+    // Files kept per transport, including the live one. Disk ceiling is
+    // 3 transports x maxFiles x maxSize = 300 MB at these values.
+    maxFiles: 5,
+    // Byte count -- NOT a human-readable string. winston's File transport
+    // compares `size >= maxsize` numerically, so '20m' coerces to NaN and
+    // rotation silently never fires; that is what let these logs reach 349 MB.
+    // Keep it arithmetic so it stays readable and stays a number.
+    maxSize: 20 * 1024 * 1024
   },
 
   // Health Check Configuration

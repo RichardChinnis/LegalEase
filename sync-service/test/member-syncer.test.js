@@ -35,6 +35,37 @@ const malformedPreviousNames = [
   { firstName: 'Randy', lastName: 'Fine', directOrderName: 'Randy Fine', startDate: '2025-04-02T04:00:00Z' }
 ];
 
+// upsertMember only uses this.db.query, so give an isolated prototype instance a
+// recording db and read back the statement it would send to Postgres.
+function captureUpsertMember() {
+  const instance = Object.create(MemberSyncer.prototype);
+  let captured = null;
+  instance.db = {
+    query: async (text, params) => {
+      captured = { text, params };
+      return { rowCount: 1, rows: [{ bioguide_id: params[0], inserted: true }] };
+    }
+  };
+  return instance.upsertMember({ bioguide_id: 'F000484', first_name: 'Randy', last_name: 'Fine' })
+    .then(() => captured);
+}
+
+// Pull the INSERT column list and the ON CONFLICT ... DO UPDATE SET targets out of
+// the statement so the test follows the SQL rather than a hardcoded copy of it.
+function insertedColumns(text) {
+  const open = text.indexOf('INSERT INTO member (') + 'INSERT INTO member ('.length;
+  return text.slice(open, text.indexOf(') VALUES'))
+    .split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function refreshedColumns(text) {
+  const setClause = text.slice(
+    text.indexOf('DO UPDATE SET') + 'DO UPDATE SET'.length,
+    text.indexOf('RETURNING')
+  );
+  return [...setClause.matchAll(/^\s*(\w+)\s*=/gm)].map(m => m[1]);
+}
+
 (async () => {
   await test('transformPreviousNames drops rows whose end_date precedes start_date', () => {
     const rows = syncer.transformPreviousNames(malformedPreviousNames, 'F000484');
@@ -64,6 +95,45 @@ const malformedPreviousNames = [
     });
     assert.deepStrictEqual(order, ['explodes', 'runs-after'],
       'a thrown sub-sync must be swallowed so subsequent sub-syncs still execute');
+  });
+
+  await test('upsertMember refreshes every column it inserts, so a stub row converges to a full row', async () => {
+    const { text } = await captureUpsertMember();
+    const inserted = insertedColumns(text);
+    const refreshed = refreshedColumns(text);
+
+    // bioguide_id is the conflict key, so it is the one column that must not be reassigned.
+    const stranded = inserted.filter(col => col !== 'bioguide_id' && !refreshed.includes(col));
+    assert.deepStrictEqual(stranded, [],
+      `these columns are written on INSERT but never refreshed on conflict, so a stub row ` +
+      `keeps its NULLs forever: ${stranded.join(', ')}`);
+  });
+
+  await test('a sync that omits a stable biographical field cannot blank an existing value', async () => {
+    const { text } = await captureUpsertMember();
+
+    // Congress.gov omitting a field in one response is not the same as asserting it
+    // is now empty, so these must preserve on null rather than overwrite.
+    const preserveOnNull = [
+      'middle_name', 'suffix_name', 'nickname', 'direct_order_name', 'inverted_order_name',
+      'honorific_name', 'birth_year', 'death_year', 'depiction_url', 'depiction_attribution',
+      'official_url'
+    ];
+
+    for (const col of preserveOnNull) {
+      const pattern = new RegExp(`${col}\\s*=\\s*COALESCE\\(\\s*EXCLUDED\\.${col}\\s*,\\s*member\\.${col}\\s*\\)`, 'i');
+      assert.ok(pattern.test(text),
+        `${col} must be COALESCE(EXCLUDED.${col}, member.${col}) so a missing field does not blank a good value`);
+    }
+  });
+
+  await test('current_member is a straight overwrite so a member leaving office is recorded', async () => {
+    const { text } = await captureUpsertMember();
+
+    assert.ok(/current_member\s*=\s*EXCLUDED\.current_member/i.test(text),
+      'current_member must take the incoming value directly');
+    assert.ok(!/current_member\s*=\s*COALESCE/i.test(text),
+      'current_member must not be preserve-on-null: a member becoming false must always win');
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

@@ -274,7 +274,17 @@ class MemberSyncer {
     }
   }
 
-  // Upsert member data
+  // Upsert member data.
+  // Every inserted column is refreshed on conflict so a stub row -- the few columns
+  // ensureMemberStub writes when a member cosponsors a bill before this sync reaches
+  // them -- converges to a complete record on the next run.
+  // Two semantics on conflict:
+  //   EXCLUDED.x           for fields that legitimately empty out (a member leaving
+  //                        office loses their office address, phone and current flag).
+  //   COALESCE(EXCLUDED.x, member.x)  for stable biographical and display fields:
+  //                        Congress.gov omitting one of these in a response is an
+  //                        omission, not a claim that the value is now empty, so a
+  //                        thin response must not blank data we already have.
   async upsertMember(memberData) {
     const query = `
       INSERT INTO member (
@@ -287,7 +297,18 @@ class MemberSyncer {
       ON CONFLICT (bioguide_id) DO UPDATE SET
         first_name = EXCLUDED.first_name,
         last_name = EXCLUDED.last_name,
+        middle_name = COALESCE(EXCLUDED.middle_name, member.middle_name),
+        suffix_name = COALESCE(EXCLUDED.suffix_name, member.suffix_name),
+        nickname = COALESCE(EXCLUDED.nickname, member.nickname),
+        direct_order_name = COALESCE(EXCLUDED.direct_order_name, member.direct_order_name),
+        inverted_order_name = COALESCE(EXCLUDED.inverted_order_name, member.inverted_order_name),
+        honorific_name = COALESCE(EXCLUDED.honorific_name, member.honorific_name),
+        birth_year = COALESCE(EXCLUDED.birth_year, member.birth_year),
+        death_year = COALESCE(EXCLUDED.death_year, member.death_year),
         current_member = EXCLUDED.current_member,
+        depiction_url = COALESCE(EXCLUDED.depiction_url, member.depiction_url),
+        depiction_attribution = COALESCE(EXCLUDED.depiction_attribution, member.depiction_attribution),
+        official_url = COALESCE(EXCLUDED.official_url, member.official_url),
         office_address = EXCLUDED.office_address,
         phone_number = EXCLUDED.phone_number,
         api_update_date = EXCLUDED.api_update_date,

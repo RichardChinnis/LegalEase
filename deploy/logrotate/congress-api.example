@@ -1,0 +1,61 @@
+# Host-level log rotation for the congress-api services.
+#
+# Install (requires root):
+#   sudo install -o root -g root -m 644 \
+#     __REPO__/deploy/logrotate/congress-api \
+#     /etc/logrotate.d/congress-api
+#   sudo logrotate --debug /etc/logrotate.d/congress-api   # dry run, changes nothing
+#
+# This is a safety net layered under the in-app winston rotation in
+# backend/logger.js and sync-service/lib/logger.js. winston bounds each file by
+# size while a service is running; logrotate ages, dates and compresses the
+# files, and still bounds them if a service runs an older build or is stopped
+# mid-write.
+#
+# copytruncate is required here: both services are long-lived Node processes
+# that hold their log file descriptors open for the life of the process and have
+# no SIGHUP/SIGUSR1 handler to reopen them. Renaming the file out from under an
+# open fd would leave the process writing to an unlinked inode forever, so the
+# file is copied and then truncated in place instead.
+#
+# The active log files are listed explicitly rather than globbed as *.log.
+# winston's tailable rotation writes its own history to combined1.log,
+# combined2.log, ... which a *.log glob would match, so logrotate would rotate
+# winston's archive a second time. Naming the live files keeps the two layers
+# from fighting over the same history.
+#
+# Ownership differs per directory, so each gets its own stanza with a matching
+# su. logrotate refuses to rotate inside a directory it does not own unless su
+# names the owning user and group.
+
+# sync-service/logs is owned by the sync service account (congress-sync.service).
+__REPO__/sync-service/logs/combined.log
+__REPO__/sync-service/logs/error.log
+__REPO__/sync-service/logs/sync.log {
+    su __SYNC_USER__ __SYNC_GROUP__
+    daily
+    rotate 14
+    dateext
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+
+# backend/logs is owned by the backend service account.
+__REPO__/backend/logs/combined.log
+__REPO__/backend/logs/error.log
+__REPO__/backend/logs/chat.log
+__REPO__/backend/logs/exceptions.log
+__REPO__/backend/logs/rejections.log {
+    su __BACKEND_USER__ __BACKEND_GROUP__
+    daily
+    rotate 14
+    dateext
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

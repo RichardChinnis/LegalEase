@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node test/member-syncer.test.js",
+    "test": "node test/member-syncer.test.js && node test/bill-cosponsor.test.js && node test/congressional-record-syncer.test.js",
     "dev": "nodemon index.js",
     "sync:bills": "node sync-bills.js",
     "sync:full": "node index.js --full",

@@ -6,8 +6,9 @@ const config = require('./config');
 const app = createApp();
 
 // Start server with graceful shutdown
-const server = app.listen(config.server.port, () => {
-  logger.info(`Congress API proxy server running on port ${config.server.port}`, {
+const server = app.listen(config.server.port, config.server.host, () => {
+  logger.info(`Congress API proxy server running on ${config.server.host}:${config.server.port}`, {
+    host: config.server.host,
     port: config.server.port,
     environment: config.server.environment,
     timestamp: new Date().toISOString(),

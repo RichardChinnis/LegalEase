@@ -336,6 +336,46 @@ class DatabaseService {
     };
   }
 
+  // Insert a minimal member row so rows that reference member(bioguide_id) -- e.g.
+  // bill_cosponsor -- can be written for a member Congress.gov already reports but
+  // the monthly member sync has not inserted yet. bioguide_id is the only NOT NULL
+  // column on member, so a stub is always a valid row, and DO NOTHING leaves an
+  // already-synced member untouched for the member sync to keep owning.
+  async ensureMemberStub(memberData) {
+    const bioguideId = memberData?.bioguide_id;
+    if (!bioguideId) {
+      throw new Error('ensureMemberStub requires a bioguide_id');
+    }
+
+    // The cosponsor payload carries no directOrderName, so compose it from the
+    // name parts to match the "First Middle Last" format the member sync writes.
+    const directOrderName = memberData.direct_order_name ||
+      [memberData.first_name, memberData.middle_name, memberData.last_name, memberData.suffix_name]
+        .filter(Boolean).join(' ') || null;
+
+    const query = `
+      INSERT INTO member (
+        bioguide_id, first_name, middle_name, last_name, suffix_name, direct_order_name
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (bioguide_id) DO NOTHING
+      RETURNING bioguide_id`;
+
+    const values = [
+      bioguideId,
+      memberData.first_name || null,
+      memberData.middle_name || null,
+      memberData.last_name || null,
+      memberData.suffix_name || null,
+      directOrderName
+    ];
+
+    const result = await this.query(query, values);
+    return {
+      bioguide_id: bioguideId,
+      inserted: result.rowCount > 0
+    };
+  }
+
   // Upsert bill cosponsor
   async upsertBillCosponsor(cosponsorData) {
     const query = `
