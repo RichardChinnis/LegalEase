@@ -24,21 +24,22 @@
 -- Rollback: cr-section-page-drift-rollback-20260921.sql (240 rows, exact
 -- pre-repair values).
 --
--- OUTCOME: 240 rows updated, 7 then reverted. Widen-only is only correct if a
--- section's articles actually belong to it. Seven sections hold MISASSIGNED
--- articles -- section 1 (Vol 169 No. 1, Jan 2023) contains article_id 1,
--- "Congressional Accountability Act of 1995 Amendment" at H3218-H3220 -- and
--- widening propagated that into the section, turning H1-H8 into H1-H3220.
--- Those 7 were reverted to their pre-repair values and are excluded below.
--- Their real defect is article assignment, not page range; fixing the range
--- while a 1995 article sits in a 2023 section would only hide it.
+-- HISTORY. The first run updated 240 rows; 7 were then reverted because widening
+-- turned them into 500-8,400 page sections, which looked absurd. A 500-page cap
+-- was added. Investigating the API showed the cap was WRONG: a Congressional
+-- Record issue can genuinely span discontinuous pages. Vol 161 No. 120's House
+-- section really does hold articles at H5564-H5593 and H8527-H8545, and both
+-- clusters' document URLs resolve on congress.gov under 161/120, dated
+-- 2015-07-28. 27 sections of 11,725 have spreads over 500 pages and are real.
 --
--- Excluded: 1, 2, 2303, 6729, 8054, 22969, 26627. Investigate with
--- detect-cr-orphan-articles.sql. 233 sections were correctly repaired; these 7
--- remain drifted on purpose.
+-- The cap is therefore removed and those sections are repaired to their true
+-- span. Two of the 7 needed no range fix at all: sections 1 and 2 were skewed
+-- only by article_id 1 and 2, hand-made development fixtures with no source
+-- links, deleted by delete-seed-articles-20260921.sql. With those gone the
+-- sections' own articles describe them correctly.
 --
--- The guard below also bounds any single widening to 500 pages, so re-running
--- this cannot reintroduce the same damage.
+-- Widen-only remains right, but for a better reason than caution: min..max of a
+-- section's own articles is the honest extent, however wide it looks.
 
 BEGIN;
 
@@ -63,10 +64,6 @@ UPDATE congressional_record_section s
        end_page   = m.pfx || GREATEST(m.s_end,  m.a_max)::text
   FROM matched m
  WHERE s.section_id = m.section_id
-   AND (m.s_end < m.s_start OR m.a_max > m.s_end OR m.a_min < m.s_start)
-   -- Guard: refuse to widen a section past 500 pages. A CR section spans tens
-   -- of pages, not hundreds; anything beyond that means the section holds an
-   -- article that does not belong to it, and the range is not the thing to fix.
-   AND GREATEST(m.s_end, m.a_max) - LEAST(m.s_start, m.a_min) <= 500;
+   AND (m.s_end < m.s_start OR m.a_max > m.s_end OR m.a_min < m.s_start);
 
 COMMIT;
